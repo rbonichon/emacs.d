@@ -1,0 +1,656 @@
+#+title: Miscellaneous code snippets
+
+
+#+BEGIN_SRC emacs-lisp
+  ;;auto-open and auto-load central conf file
+  (defvar my/emacs-configuration-file
+    "~/.emacs.d/emacs.org"
+    "Location of main Emacs configuration file")
+
+  (defun open-conf-file ()
+    "Open my .emacs file"
+    (interactive)
+    (find-file my/emacs-configuration-file))
+
+  (defvar my/org-configuration-file
+    "~/.emacs.d/orgmode.org"
+    "Location of org-mode Emacs configuration file")
+
+  (defun open-org-file ()
+    "Open my org configuration file"
+    (interactive)
+    (find-file my/org-configuration-file))
+
+  (defvar my/init-file "~/.emacs.d/init.el" "Location of init file")
+
+  (defun load-conf-file ()
+    "Load my .emacs file"
+    (interactive)
+    (load-file my/init-file))
+
+
+  ;; (global-set-key (kbd "<f5>") 'open-conf-file)
+  ;; (global-set-key (kbd "<f7>") 'open-org-file)
+  (global-set-key (kbd "<f6>") 'load-conf-file)
+
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+(defun my/tangle-dotfiles ()
+  "If the current file is in '~/dotfiles', the code blocks are tangled"
+  (when (equal (file-name-directory (directory-file-name buffer-file-name))
+               (concat (getenv "HOME") "/.emacs.d/"))
+    (org-babel-tangle)
+    (message "%s tangled" buffer-file-name)))
+
+(add-hook 'after-save-hook #'my/tangle-dotfiles)
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+  (defun datestamp ()
+     (interactive)
+     (insert (format-time-string "%Y%m%d"))
+     )
+
+  (defun timestamp ()
+     (interactive)
+     (comment-dwim ())
+     (insert datestamp)
+     (insert (format-time-string "at %H:%M"))
+     )
+
+  (defun close-and-kill-next-pane ()
+    "Close the other pane and kill the buffer in it also."
+    (interactive)
+    (other-window 1)
+    (kill-buffer)
+    (delete-window)
+    )
+
+  (defun close-and-kill-this-pane ()
+    "Close this pane and kill the buffer in it also."
+    (interactive)
+    (kill-buffer)
+    (delete-window)
+    )
+
+  (defun fconcat (dirname fname)
+    "Concatenate a presumed directory name with file name.
+     Is like writing (concat dirname '/' fname)"
+    (when (file-directory-p dirname)
+      (concat dirname "/" fname)))
+
+  (defun add-load-dir  (dirname)
+    (add-to-list 'load-path (format "~/.emacs.d/site-lisp/%s" (dirname))))
+
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+  (defun mycaml-match-string (num &optional string)
+
+    "Return string of text matched by last search, without properties.
+  NUM specifies which parenthesized expression in the last regexp.
+  Value is nil if NUMth pair didn't match, or there were less than NUM
+  pairs.  Zero means the entire text matched by the whole regexp or
+  whole string."
+
+    (let* ((data (match-data))
+           (begin (nth (* 2 num) data))
+           (end (nth (1+ (* 2 num)) data)))
+      (if string (substring string begin end)
+        (buffer-substring-no-properties begin end))))
+
+  (defun c-find-alternate-file ()
+    (interactive)
+    (let ((name (buffer-file-name)))
+      (if (string-match "^\\(.*\\)\\.\\(h\\|c\\)$" name)
+          (find-file
+           (concat
+            (mycaml-match-string 1 name)
+            (if (string= "c" (mycaml-match-string 2 name)) ".h" ".c"))))))
+
+  (defun cpp-find-alternate-file ()
+    (interactive)
+    (let ((name (buffer-file-name)))
+      (if (string-match "^\\(.*\\)\\.\\(h\\|cpp\\)$" name)
+          (find-file
+           (concat
+            (mycaml-match-string 1 name)
+            (if (string= "cpp" (mycaml-match-string 2 name)) ".h" ".cpp"))))))
+#+END_SRC
+
+#+begin_src emacs-lisp
+(defun kill-other-buffers ()
+  "Kill all other buffers."
+  (interactive)
+  (mapc 'kill-buffer (delq (current-buffer) (buffer-list))))
+#+end_src
+
+#+begin_src emacs-lisp
+  (defun kill-dired-buffers ()
+    "Kill all open dired buffers."
+    (interactive)
+    (mapc
+     (lambda (buffer)
+       (when
+           (eq 'dired-mode (buffer-local-value 'major-mode buffer))
+         (kill-buffer buffer)))
+     (buffer-list)))
+#+end_src
+
+
+
+* Commented time-stamp
+
+#+BEGIN_SRC emacs-lisp
+(defun rb/commented-time-stamp ()
+  "Insert a commented time stamp"
+  (interactive)
+  (let ((time-string (current-time-string))
+        (pos (point)))
+    (insert (format "%s" time-string))
+    (newline)
+    (comment-region pos (point))))
+#+END_SRC
+
+* Org
+
+#+begin_src emacs-lisp
+  (defun rb/org-goto-first-heading ()
+    (interactive)
+    (goto-char (point-min))
+    (while (not (looking-at "\*")) (next-line)))
+#+end_src
+
+#+RESULTS:
+: rb/org-goto-first-heading
+
+#+begin_src emacs-lisp
+  (defun rb/org-meeting-notes ()
+    "Insert meeting note template in an org-mode buffer "
+    (interactive)
+    (save-excursion
+      (org-insert-subheading t)
+      (insert (format-time-string "Meeting notes [%Y-%m-%d]"))
+      (newline 2)
+      (org-insert-subheading t)
+      (insert "Participants")
+      (dolist (heading '("Agenda" "Decisions" "Actions"))
+        (newline 2)
+        (org-insert-heading)
+        (insert heading))))
+
+#+end_src
+
+#+RESULTS:
+: rb/org-meeting-notes
+
+
+#+RESULTS:
+: rb/copy-wlog-export
+
+
+* OCaml
+
+
+#+BEGIN_SRC emacs-lisp
+  ;; Control whether to add ;; at the end of the declaration
+  ;; TODO: look in tuareg whether there is a similar thing
+  (defvar rb/ocaml/commacomma-ends-sentence t)
+
+  (defun rb/ocaml-pp-argtypes (argtypes )
+    "docstring"
+    (let ((list argtypes)
+          (param-stack)
+          (current-param)
+          (params))
+      (while list
+        (let ((ocamldoc-keyword
+               (if (consp (cdr list)) ;; the last type is the return type
+                   "@param"
+                 "@return"
+                 )
+               )
+              (param (car list)))
+          (cond ((string-equal
+                  (substring param 0 1)
+                  "(")
+                 (progn
+                   ;; this starts a function type
+                   (push
+                    current-param
+                    param-stack)
+                   (push ocamldoc-keyword param-stack)
+                   (setq current-param
+                         (substring param 1))))
+                ((string-equal (substring param -1) ")")
+                 (progn
+                   (push (concat (pop param-stack) " " current-param " -> " (substring param 0 -1)) params)
+                   (setq current-param (pop param-stack))
+                   ))
+                (param-stack
+                 ;; we're handling a function
+                 (setq current-param (concat current-param " -> " param))
+                 )
+                (t (push (format "%s %s" ocamldoc-keyword param) params))
+                )
+          (setq list (cdr list)))
+        )
+      (string-join (reverse
+                    params) "\n")
+      )
+    )
+
+  (rb/ocaml-pp-argtypes '("foo" "bar" "baz"))
+
+  ;; require merlin / tuareg
+  ;;
+  ;; when pointing at type it produces
+  ;; val type: type 'a printable = 'a * (Format.formatter -> 'a -> unit) ;;
+  (defun rb/ocaml-export-at-point ()
+    "Export the type signature of the symbol at point.
+     In particular, if you want to export the type of f, where f for example is
+     let f x = (* body *) ... your point should be right before f occurs.
+    "
+    (interactive)
+    (when
+        (let ((fname (buffer-file-name (current-buffer))))
+          (and fname (equal "ml" (file-name-extension fname))))
+      ;; check thing at point is not a keyword
+      (message (format "OCaml looking at %s" (thing-at-point 'symbol)))
+      ;; Assume we're looking at the symbole we want to export
+      ;; An improvement here would be to search for the name of the enclosing function/module/type definition
+      (let (ocaml-identifier (thing-at-point 'symbol))
+        (tuareg-beginning-of-defun)
+        (let ((kw (thing-at-point 'symbol))
+              (msitfor merlin-allow-sit-for)
+              ;; default dummy type which has at least a meaning in OCaml
+              (ocaml-kw-type nil) ;; has an influence on the conditional handling below
+              (ocaml-val-type "unit"))
+
+          (cond ((equal kw "module")
+                 (progn
+                   (setq ocaml-kw-type 'module)
+                   (forward-word)
+                   (forward-char)
+                   (setq ocaml-identifier
+                         (thing-at-point 'symbol))))
+               
+                ((equal kw "let")
+                 (progn
+                   (setq ocaml-kw-type 'val)
+                   (forward-word)
+                   (forward-char)
+                   (setq ocaml-identifier
+                         (thing-at-point 'symbol))))
+               
+                ((equal kw "type")
+                 (setq ocaml-identifier nil))
+
+                (t (message "falled through")
+                   (setq ocaml-identifier "not-yet-implemented-case")))
+          (setq merlin-allow-sit-for nil)
+          (merlin-type-enclosing) ;; Seems to block until next keystroke
+          (next-line)
+          (beginning-of-line)
+          (with-current-buffer merlin-type-buffer-name
+            (setq ocaml-val-type (buffer-string))) ;
+          ;; Assume current buffer ends with .ml
+          (tuareg-find-alternate-file)
+          ;; insert the signature at the end of the mli file
+          (end-of-buffer)
+          (newline)
+          (message "kw: %s, id: %s" ocaml-kw-type ocaml-identifier)
+          (insert
+           (let ((exported
+                  (if (and ocaml-kw-type ocaml-identifier)
+                      (let* ((arg-types (split-string
+                                         ocaml-val-type
+                                         "->" t split-string-default-separators)))
+                        (message "%s" arg-types)
+                        (format
+                         "(** [%s] \n%n*)\n%s %s: %s"
+                         ocaml-identifier
+                         (rb/ocaml-pp-argtypes
+                          arg-types)
+                         ocaml-kw-type
+                         ocaml-identifier
+                         ocaml-val-type)) 
+                    ;; We were looking at like type, that is reprinted entirely
+                    ;; in merlin-buffer
+                    ocaml-val-type)))
+             (format "\n%s%s"
+                     exported
+                     (if rb/ocaml/commacomma-ends-sentence " ;;" ""))))
+          ;; reset merlin-allow-sit-for to whatever value it had before
+          (setq merlin-allow-sit-for msitfor)))))
+#+END_SRC
+
+
+* Loading
+
+#+begin_src emacs-lisp
+  (defun rb/... (str) (message (format "%s ..." str)))
+
+  (defun rb/maybe-load-feature (feature)
+    (unless (require feature nil t)
+      (rb/... (format "Could not find feature %s" feature))))
+#+end_src
+
+* Get mail (first launch)
+
+#+begin_src emacs-lisp
+  (defcustom rb/get-mail-cmd "~/scripts/getmail" ""
+    :type 'string)
+
+  (defun rb/get-mail ()
+    "Call rb/get-mail-cmd"
+    (interactive)
+    (async-shell-command (expand-file-name rb/get-mail-cmd)))
+#+end_src
+
+* Make shell scripts executable on save
+
+  Consider files starting with "#!" as executable scripts.
+
+  #+begin_src emacs-lisp
+    (add-hook 'after-save-hook
+            #'(lambda ()
+            (and (save-excursion
+                   (save-restriction
+                     (widen)
+                     (goto-char (point-min))
+                     (save-match-data
+                       (looking-at "^#!"))))
+                 (not (file-executable-p buffer-file-name))
+                 (shell-command (concat "chmod u+x " buffer-file-name))
+                 (message
+                  (concat "Saved as script: " buffer-file-name)))))
+  #+end_src
+
+
+
+* Misc
+
+#+begin_src emacs-lisp
+(put 'narrow-to-region 'disabled nil)
+#+end_src
+
+
+* Gitlab issues
+
+  #+begin_src emacs-lisp
+    (defun rb/glab-actions ()
+      (interactive)
+      (require 'dom)
+      (with-temp-buffer
+        (url-insert-file-contents
+         "https://arvidnl.gitlab.io/tezos-merge-team-scripts/richard.bonichon.html")
+        (let* ((dom (libxml-parse-html-region (point-min) (point-max)))
+               ;; The value is contained in a <li class="big-number"> tag
+               ;; IT is the first tag of its class (car)
+               ;; There is a lot of whitespaces to remove (string-trim)
+               (row (cadr (dom-by-class dom "row"))))
+          (let* ((rows (dom-children (cadr (dom-children (cadddr (dom-children (cadr (dom-children row))))))))
+                 (linkify (lambda (r1)
+                            (let* (
+                                   (cs (dom-children r1))
+                                   (th (dom-child-by-tag  (car cs) 'a))
+                                   (ref (dom-attr th 'href))
+                                   (title (dom-attr th 'title))
+                                   )
+                              (format "[[%s][%s]]" ref title )))))
+            (message (format "%s" (seq-map linkify rows)))
+            ))))
+
+#+end_src
+
+#+RESULTS:
+: rb/glab-actions
+
+
+  
+* Week number
+
+  This seems to come up more often than it should ...
+  
+#+begin_src emacs-lisp 
+  (defun rb/current-week-number ()
+    "Get the number of the current week. This can be useful in
+  administrative or industrial settings."
+    (car (calendar-iso-from-absolute
+          (calendar-absolute-from-gregorian (calendar-current-date)))))
+#+end_src  
+
+
+
+* LSP python
+
+  #+begin_src emacs-lisp
+    (defun rb/reload-python-lsp ()
+      "Reset lsp python executable to the current binary for this environment"
+      (interactive)
+      (setq lsp-python-ms-executable
+            (executable-find
+             "python-language-server")))
+  #+end_src
+
+
+  
+* Ansi colors
+
+  #+begin_src emacs-lisp 
+    (require 'ansi-color)
+    
+    (defun display-ansi-colors ()
+      (interactive)
+      ;; also apply on read-only buffers
+      (let ((inhibit-read-only t))
+        (ansi-color-apply-on-region
+         (point-min)
+         (point-max))))
+#+end_src
+
+
+Borrowed from https://newbedev.com/how-do-i-display-ansi-color-codes-in-emacs-for-any-mode
+
+#+begin_src emacs-lisp
+  (use-package ansi-color
+      :hook (compilation-filter . ansi-color-compilation-filter))
+  #+end_src
+
+Older way 
+
+#+begin_src emacs-lisp :tangle no
+  (ignore-errors
+    (require 'ansi-color)
+    (defun my-colorize-compilation-buffer ()
+      (when (eq major-mode 'compilation-mode)
+        (ansi-color-apply-on-region compilation-filter-start (point-max))))
+    (add-hook 'compilation-filter-hook 'my-colorize-compilation-buffer))
+#+end_src
+* Clocktable
+
+#+begin_src emacs-lisp 
+(defun rb/insert-clocktable ()
+  "docstring"
+  (interactive)
+  (save-excursion
+    (beginning-of-buffer)
+;;;  go right after the initial org declarations
+    (while (looking-at "#+")
+      (next-line))
+    (newline)
+    (insert "\n#+BEGIN: clocktable :scope file :maxlevel 2 :formula %\n#+END:\n\n"))
+  )
+#+end_src
+
+
+* COMMENT Some useful commands 
+
+
+#+begin_src emacs-lisp
+  (defun home-manager-update ()
+    "docstring"
+    (interactive)
+    (let ((bufname "*home-manager*"))
+      (set-processs-sentinel
+       (start-process "nix update" bufname "nix-channel" "--update")
+       (lambda (p e)
+         (when (= 0 (process-exit-status p))
+           (start-process "home-manager" bufname "home-manager" "switch" "-b" "backup")))
+    )))
+
+
+  (defhydra hydra-command-utils ()
+    "General hydra to run predefined useful command"
+    ("hm" home-manager-update "Update home manager"))
+#+end_src
+
+
+
+* Undoing some key bindings in local maps
+
+#+begin_src emacs-lisp
+  (defun get-key-combo (key)
+    "Just return the key combo entered by the user"
+    (interactive "kKey combo: ")
+    key)
+
+  (defun keymap-unset-key (key keymap)
+    "Remove binding of KEY in a keymap KEY is a string or vector
+  representing a sequence of keystrokes."
+    (interactive
+     (list (call-interactively #'get-key-combo)
+           (completing-read "Which map: " minor-mode-map-alist nil t)))
+    (let ((map (cl-rest (assoc (intern keymap) minor-mode-map-alist))))
+      (when map
+        (define-key map key nil)
+        (message  "%s unbound for %s" key keymap))))
+#+end_src
+
+* Getting the last nix log linex in vterm
+
+This is a recorded macro
+
+#+begin_src emacs-lisp 
+  (fset 'get-nix-log
+     (kmacro-lambda-form [?\C-c ?\C-t ?\C-r ?n ?i ?x ?  ?l ?o ?g return ?\C-  ?\C-e ?\C-b ?\C-b escape ?w ?\C-c ?\C-t] 0 "%d"))
+#+end_src
+
+* USD/EUR conversion
+
+#+begin_src emacs-lisp
+  (require 'plz)
+
+  (defun usd-eur-rate ()
+    "Retrieve today's USD/EUR exchange rate.
+
+  The source URL is updated once a day. Good enough for now.
+  " 
+    (interactive)
+    (let* ((data (plz
+                   'get
+                   "https://open.er-api.com/v6/latest/USD"
+                   :as #'json-read))
+           (rates (cdr (assoc 'rates data))))
+      (cdr (assoc 'EUR rates))))
+#+end_src
+
+
+* Finding a project root
+
+Try =project= then =projectile=. This should be smart enough since =project= is
+in Emacs default distribution.
+
+#+begin_src emacs-lisp
+(defun rb--find-project-root ()
+  "Find the project root directory.
+Tries project.el first, then projectile, then falls back to `default-directory'."
+  (or (and (fboundp 'project-root)
+           (when-let ((proj (project-current)))
+             (project-root proj)))
+      (and (fboundp 'projectile-project-root)
+           (projectile-project-root))
+      default-directory))
+#+end_src
+
+* Scratch buffer
+
+** Always writable
+
+Nothing in the config explicitly sets the scratch buffer read-only, but some
+global mode applied at startup apparently does.  Force it writable after init.
+
+#+begin_src emacs-lisp
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (with-current-buffer (get-buffer-create "*scratch*")
+              (setq buffer-read-only nil))))
+#+end_src
+
+To diagnose the actual culprit later:
+: M-x describe-variable RET buffer-read-only   ; check value + which set it
+: M-x describe-mode                             ; check active minor modes
+
+** Project scratch buffers
+
+=C-c s= creates (or visits) a scratch buffer named after the current project.
+Falls back to =rb--find-project-root= which already tries project.el →
+projectile → default-directory.
+
+#+begin_src emacs-lisp
+(defun rb/project-name ()
+  "Return a short name for the current project, or \"scratch\"."
+  (let ((root (rb--find-project-root)))
+    (if (string= root default-directory)
+        "scratch"
+      (file-name-nondirectory (directory-file-name root)))))
+
+(defun rb/new-project-scratch ()
+  "Create or switch to a scratch buffer for the current project.
+The buffer is named *scratch[PROJECT]* and uses fundamental-mode."
+  (interactive)
+  (let* ((name (rb/project-name))
+         (buf  (get-buffer-create (format "*scratch[%s]*" name))))
+    (switch-to-buffer buf)
+    (when (zerop (buffer-size))
+      (fundamental-mode)
+      (insert (format ";; scratch — %s\n\n" name)))
+    (setq buffer-read-only nil)))
+
+(global-set-key (kbd "C-c s") #'rb/new-project-scratch)
+#+end_src
+
+* Column reading with follow-mode
+
+Spread one buffer across several side-by-side windows and let =follow-mode=
+scroll them as a single continuous column — useful to read a long file without
+constant scrolling.
+
+#+begin_src emacs-lisp
+(defun column-read-buffer (buffer &optional n)
+  "Read BUFFER across several side-by-side windows with `follow-mode'.
+Delete all other windows, split the selected window into N extra
+side-by-side windows (N defaults to 2), point every window at BUFFER,
+and enable Follow mode so they scroll as one continuous column of text."
+  (interactive "bBuffer: ")
+  (let ((buffer (get-buffer buffer))
+        (n (or n 2)))
+    (switch-to-buffer buffer)
+    (delete-other-windows)
+    (dotimes (_ n)
+      (split-window-right))
+    (balance-windows)
+    (dolist (win (window-list nil 'no-minibuffer))
+      (set-window-buffer win buffer))
+    (with-current-buffer buffer
+      (follow-mode 1))))
+
+(defun column-read-current-buffer (&optional n)
+  "Run `column-read-buffer' on the current buffer.
+With a prefix argument, add N extra windows instead of the default 2."
+  (interactive "P")
+  (column-read-buffer (current-buffer)
+                      (and n (prefix-numeric-value n))))
+#+end_src

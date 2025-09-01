@@ -1,0 +1,29 @@
+# Deny-by-default: this repo tracks only the literate config + init files.
+# Everything else in ~/.emacs.d is runtime state, package installs, backups,
+# or credentials — none of it should ever be committed by an `git add -A`.
+*
+
+# --- explicitly tracked ---
+!.gitignore
+!early-init.el
+!init.el
+!emacs26.org
+!misc.org
+!orgmode.org
+
+# --- never track, even if the rules above are relaxed later ---
+# (redundant with `*`, kept as an explicit guard)
+backups/
+var/backup/
+auto-save-list/
+kraken.el
+emacsstorre.org
+oauth2-auto.plist
+*.gpg
+.authinfo*
+history
+recentf
+forge-database*.sqlite
+org-roam.db
+projectile.cache
+network-security.data

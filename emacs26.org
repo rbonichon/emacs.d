@@ -1,0 +1,3186 @@
+#+title: Emacs configuration file
+
+* Resources                                                        :noexport:
+
+- https://github.com/reinh/dotemacs/blob/master/conf/init.org
+- https://github.com/munen/emacs.d/
+- https://github.com/howardabrams/dot-files/blob/master/emacs-mail.org
+- https://github.com/FredeEB/.emacs.d/blob/master/config.org#lsp
+- https://protesilaos.com/dotemacs/
+- https://oremacs.com/swiper/
+- https://www.youtube.com/watch?time_continue=330&v=0g9BcZvQbXU&feature=emb_logo
+- https://github.com/caiohcs/my-emacs
+
+* Basic
+** Sources
+
+ - [[https://ogbe.net/emacsconfig.html][Ogbe's config file]]
+ - A curated [[https://github.com/caisah/emacs.dz][list]] of nice emacs config files.
+
+
+
+#+begin_src emacs-lisp
+;; Emacs configuration file
+;; Generic options
+;; Do not write anything at startup
+(setq inhibit-startup-screen t)
+(setq debug-on-error t)
+
+;; (setq exec-path (append '("/home/richard/devel/Pygments-1.6") exec-path ))
+
+(setq home-emacs-dir (concat (getenv "HOME") "/.emacs.d/"))
+
+;; The rest of the init file.
+#+end_src
+
+
+#+begin_src emacs-lisp
+  ;; don't let Customize mess with my .emacs
+  (setq custom-file (concat home-emacs-dir "custom.el"))
+  ;;  (load custom-file 'noerror)
+
+  ;; Control backup policy
+  (defvar mybackup-directory (concat user-emacs-directory "backups"))
+
+  (if (not (file-exists-p mybackup-directory))
+      (make-directory mybackup-directory t))
+
+  (setq backup-directory-alist `(("." . ,mybackup-directory)))
+
+
+  ;; Assume loading external themes is safe by default
+  (setq custom-safe-themes t)
+
+  (setq make-backup-files t         ; backup of a file the first time it is saved.
+        backup-by-copying t         ; don't clobber symlinks
+        version-control t           ; version numbers for backup files
+        delete-old-versions t       ; delete excess backup files silently
+        delete-by-moving-to-trash nil
+        kept-old-versions 2 ; oldest versions to keep when a new numbered backup is made (default: 2)
+        kept-new-versions 2 ; newest versions to keep when a new numbered backup is made (default: 2)
+        auto-save-default nil          ; auto-save every buffer that visits a file
+        auto-save-timeout 20 ; number of seconds idle time before auto-save (default: 30)
+        auto-save-interval 1000 ; number of keystrokes between auto-saves (default: 300)
+        split-height-threshold 400 ; see split-window-sensibly for the 2 variables work
+        split-width-threshold 250
+        compilation-scroll-output t ; follow the tail of the output in compilation
+                                          ; buffers
+        )
+;;    (setq default-input-method "latin-prefix")
+ #+end_src
+
+
+#+begin_src emacs-lisp
+     ;; (setq make-backup-files nil) ;; don't make backup files
+    ;; (setq auto-save-default nil)
+    ;; (setq delete-auto-save-files t) ;; no "#" files after a save
+    ;; (setq auto-save-list-file-prefix nil) ;; don't record sessions
+
+    (setq standard-indent 2)
+    (setq-default indent-tabs-mode nil)
+    (setq tab-width 2)
+
+    (setq compile-command "make")
+    (setq save-abbrevs 'silently)           ;save abbrevs but don't ask!
+    (setq warning-minimum-level :error)
+
+    (setq locale-coding-system 'utf-8)
+    (set-terminal-coding-system 'utf-8)
+    (set-keyboard-coding-system 'utf-8)
+    (set-selection-coding-system 'utf-8)
+    (prefer-coding-system 'utf-8)
+
+    ;; Revert to on-disk version when buffer has no changes
+    (global-auto-revert-mode t)
+
+    ;; font-locking
+    (global-font-lock-mode t)
+
+    ;;highligh selected region
+    (transient-mark-mode t)
+    (setq comment-style 'multi-line)
+
+    ;; Display line and column please
+    (column-number-mode t)
+    ;;(line-number-mode t)
+    (setq global-hl-mode t)
+
+    (setq initial-scratch-message "") ;; Uh, I know what Scratch is for
+
+    (setq visible-bell t)             ;; Get rid of the beeps
+
+    ;;No bars please
+    (when
+        (and (window-system)
+             (fboundp 'horizontal-scroll-bar-mode))
+      (horizontal-scroll-bar-mode -1))
+    (scroll-bar-mode -1)
+    (tool-bar-mode 0)
+    (menu-bar-mode -99)
+
+    ;; wrap at 80
+    (setq-default fill-column 80)
+
+    ;;show matching parenthesis
+    (show-paren-mode t)
+
+    ;;Set frame title
+    (setq frame-title-format '(buffer-file-name "Emacs: %b (%f)" "Emacs : %b"))
+
+    ;; Make all yes-or-no questions as y-or-n
+    (fset 'yes-or-no-p 'y-or-n-p)
+
+    ;; follow symlinks which points to a version-controlled file
+    (setq vc-follow-symlinks t)
+#+end_src
+
+** Mode line as header
+
+#+begin_src emacs-lisp
+  (setq-default header-line-format mode-line-format)
+  (setq-default mode-line-format nil)
+#+end_src
+
+** search
+
+#+begin_src emacs-lisp
+  (setq isearch-lazy-highlight t)
+  (setq lazy-count-prefix-format nil)
+  (setq lazy-count-suffix-format "   (%s/%s)")
+#+end_src
+** Text expansion
+
+   See Mastering Emacs v3 p.232
+
+   #+begin_src emacs-lisp
+     (global-set-key [remap dabbrev-expand] 'hippie-expand)
+   #+end_src
+
+** Authentication
+
+ Restrict =auth-sources= to 1 encrypted file, no .authinfo nor .netrc here
+
+#+begin_src emacs-lisp
+  (setq auth-sources '((:source "~/.authinfo.gpg")))
+#+end_src
+
+** Pinentry & gpg2
+
+#+begin_src emacs-lisp
+  (setq
+   ;; epa-pinentry-mode is an obsolete alias since 27.1
+   epg-pinentry-mode 'loopback
+   epa-file-cache-passphrase-for-symmetric-encryption t)
+
+  (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
+  ;  (pinentry-start)
+#+end_src
+
+** =Ediff=
+
+   =Ediff= is the mode that allows to view and merge diff, for example in case
+   of conflicts. It is callable, for example, from [[#magit]].
+
+   #+begin_src emacs-lisp
+   (setq ediff-window-setup-function 'ediff-setup-windows-plain)
+   #+end_src
+
+*** Note
+    It seems that =ocp-indent= interacts badly with =Ediff= and also with
+    =org-babel=. It has probably been superseded by ~ocamlformat~ these days anyway.
+
+
+** Browse URL
+
+   #+begin_src emacs-lisp
+     (setq browse-url-browser-function
+           '(
+             ("wikipedia\\.org" . browse-url-firefox)
+             ("gitlab" . browse-url-firefox)
+             ("github" . browse-url-firefox)
+             ("thefreedictionary\\.com" . eww-browse-url)
+             ("." . eww-browse-url)
+             ))
+     (setq browse-url-firefox-program "xdg-open"
+           browse-url-firefox-arguments nil ;; '("-p" "default")
+           shr-external-browser 'eww-browse-url)
+#+end_src
+
+** Shr
+
+#+begin_src emacs-lisp
+     (setq shr-image-animate nil
+           shr-max-image-proportion 0.4
+           shr-use-colors nil
+           shr-use-fonts nil)
+#+end_src
+
+** Password caching
+
+   #+begin_src emacs-lisp
+     (setq password-cache t
+           ;; expiry time is in seconds - set it to 30 minutes
+           password-cache-expiry (* 30 60))
+   #+end_src
+
+** Calendar
+
+   #+begin_src emacs-lisp
+     (setq calendar-week-start-day 1
+           calendar-intermonth-text
+           '(propertize
+             (format "%2d"
+                     (car
+                      (calendar-iso-from-absolute
+                       (calendar-absolute-from-gregorian (list month day year)))))
+             'font-lock-face 'calendar-iso-week-header-face))
+
+     (setq calendar-intermonth-header
+           (propertize "W"                  ; or e.g. "KW" in Germany
+                       'font-lock-face 'calendar-iso-week-header-face))
+   #+end_src
+
+** Input-method
+
+   Use ~latin-prefix~ to allow emacs-local way of inserting accents (not relying
+   on OS support). For example typing "'-e" inserts an é.
+
+   The same shortcuts can be activated anywhere by ~M-x set-input-method~ and
+   choosing the adequate input method from the completions list.
+
+#+begin_src emacs-lisp
+  (add-hook 'text-mode-hook
+            (lambda () (set-input-method "latin-prefix")))
+#+end_src
+
+** Misc
+
+  Kill running processes automatically (~ansi-term~, ~vterm~, ...)
+
+#+begin_src emacs-lisp
+  (setq confirm-kill-processes nil)
+#+end_src
+
+** Calc
+
+I am using =quick-calc= quite a lot. So here is a keybinding for it.
+
+#+begin_src emacs-lisp
+  (global-set-key (kbd "C-c =") #'quick-calc)
+#+end_src
+
+An extra =calc= function to evaluate what I can get from a given amount in terms of pay
+for myself.
+#+begin_src emacs-lisp
+  (defun calcFunc-urssaf (n)
+    "Compute actual possible amount receive, post URSSAF deductions."
+    (math-div n (math-read-number "1.45")))
+#+end_src
+
+* Restclient
+
+  Be in [[https://github.com/pashky/restclient.el][restclient]] mode for files with =http= extension.
+
+  https://justinbarclay.me/posts/literate_programming_against_rest_apis/
+
+  #+begin_src emacs-lisp
+    (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
+  #+end_src
+
+* vlf
+
+  #+begin_src emacs-lisp
+(use-package vlf :init (setq vlf-application 'dont-ask))
+  #+end_src
+
+* Package management
+
+  Check ~use-package~ [[https://github.com/jwiegley/use-package][here]].
+
+#+begin_src emacs-lisp
+    ;; End of generic option
+    ;; Use marmalade, melpa, ... and other package list
+
+    (setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")
+    (require 'package)
+
+    (setq package-archives
+        '(("gnu"          . "https://elpa.gnu.org/packages/")
+            ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+          ("melpa-stable" . "https://stable.melpa.org/packages/")
+          ("melpa"        . "https://melpa.org/packages/"))
+        package-archive-priorities
+        '(("gnu" . 5)
+          ("melpa-stable" . 6)
+            ("nongnu" . 8)
+          ("melpa" . 10)))
+
+    (package-initialize)
+    ;; if use-package is not found uncomment the line below
+    ;;  (package-refresh-contents)
+
+  ;;  (unless package-refresh-contents (package-refresh-contents))
+
+    (unless (package-installed-p 'use-package)
+      (package-install 'use-package))
+
+    (setq use-package-verbose t)
+    (setq use-package-always-ensure t)
+#+end_src
+
+#+RESULTS:
+: t
+
+
+#+begin_src emacs-lisp
+  (use-package diminish :ensure t)
+  (use-package bind-key)
+  (use-package tablist)
+
+  (use-package use-package-chords
+    :ensure t
+    :config (key-chord-mode 1))
+
+  (use-package quelpa-use-package :ensure t)
+#+end_src
+
+
+* Themes
+
+  Some themes that I like and used at some point.
+
+  #+begin_src emacs-lisp
+        (use-package leuven-theme
+          :ensure t
+          :defer t
+          )
+
+    ;    (use-package eziam-theme :defer t)
+
+        (use-package apropospriate-theme :ensure t :defer t)
+
+        ;; (use-package nano-theme
+        ;;   :ensure nil
+        ;;   :defer t
+        ;;   :quelpa (nano-theme
+        ;;            :fetcher github
+        ;;            :repo "rougier/nano-theme"))
+  #+end_src
+
+  #+RESULTS:
+
+** Theme
+
+** Modus theme
+
+ #+begin_src emacs-lisp
+   (use-package modus-themes
+     :ensure t
+     :init
+     ;; Add all your customizations prior to loading the themes
+     (setq modus-themes-italic-constructs
+           t
+           modus-themes-bold-constructs
+           nil
+           modus-themes-org-blocks
+           'gray-background
+           modus-themes-to-toggle
+           '(modus-operandi-tinted
+             modus-vivendi-tinted))
+
+     ;; Maybe define some palette overrides, such as by using our presets
+     ;; (setq modus-themes-common-palette-overrides
+     ;;       modus-themes-preset-overrides-intense)
+     ;; Load the theme of your choice.
+     (load-theme 'modus-operandi-tinted :no-confim)
+     (enable-theme 'modus-operandi-tinted)
+     :bind ("<f5>" . modus-themes-toggle))
+ #+end_src
+
+
+
+
+
+** Color various things
+
+#+begin_src emacs-lisp
+    ;; Different colors for delimiters according to the level of nestings
+    (use-package rainbow-delimiters
+      :hook (prog-mode . rainbow-delimiters-mode)
+      :ensure t)
+#+end_src
+
+
+#+begin_src emacs-lisp
+    (use-package rainbow-mode
+      :hook (web-mode emacs-lisp-mode org-mode)
+      :ensure t)
+#+end_src
+
+
+
+
+* Fonts
+
+  ~add-to-list~ is faster than ~set-frame-font~
+  https://www.reddit.com/r/emacs/comments/f3ed3r/how_is_doom_emacs_so_damn_fast/
+
+#+begin_src emacs-lisp
+  ;; Enhanced font configuration for faster startup
+  ;; Optimized version that avoids redundant font setting operations
+
+  (defun my/setup-font ()
+    "Configure font settings optimally for startup performance."
+    (let ((font-spec "Hack Nerd Font Mono:pixelsize=18:weight=normal:slant=normal"))
+
+      ;; Method 1: Set for current frame only (faster)
+      ;; Only set if we're in a graphical environment
+      (when (display-graphic-p)
+        (set-face-attribute 'default nil :font font-spec))
+
+      ;; Method 2: Add to default-frame-alist for future frames
+      ;; This is more efficient than set-frame-font for startup
+      (add-to-list 'default-frame-alist `(font . ,font-spec))
+
+      ;; Alternative: Use custom-set-faces (even more efficient)
+      ;; Uncomment if you prefer this approach:
+      ;; (custom-set-faces
+      ;;  `(default ((t (:font ,font-spec)))))
+      ))
+
+  ;; Performance optimizations
+  (setq frame-inhibit-implied-resize t)  ; Prevents frame resize calculations
+  (setq initial-major-mode 'fundamental-mode)  ; Faster than text-mode startup
+
+  ;; Font fallback configuration (optional but recommended)
+  (defvar my/font-candidates
+    '("Hack Nerd Font Mono:pixelsize=18"
+      "JetBrains Mono:pixelsize=18"
+      "Fira Code:pixelsize=18"
+      "Source Code Pro:pixelsize=18"
+      "Consolas:pixelsize=18"
+      "Monaco:pixelsize=18")
+    "List of font candidates in order of preference.")
+
+  (defun my/find-available-font ()
+    "Find the first available font from candidates list."
+    (cl-find-if (lambda (font)
+                  (when (display-graphic-p)
+                    (x-list-fonts font)))
+                my/font-candidates))
+
+  ;; Enhanced setup with font detection
+  (defun my/setup-font-with-fallback ()
+    "Setup font with automatic fallback detection."
+    (when-let ((available-font (my/find-available-font)))
+      (add-to-list 'default-frame-alist `(font . ,available-font))
+      (when (display-graphic-p)
+        (set-face-attribute 'default nil :font available-font))))
+
+  ;; Choose your preferred setup method:
+  ;; Option 1: Simple setup (use if you're sure the font exists)
+  (my/setup-font)
+
+  ;; Option 2: Setup with fallback detection (safer, slightly more overhead)
+  ;; (my/setup-font-with-fallback)
+
+  ;; Additional performance tweaks for font rendering
+  (when (display-graphic-p)
+    ;; Disable font scaling for better performance
+    (setq inhibit-compacting-font-caches t)
+
+    ;; Speed up font loading on some systems
+    (setq use-default-font-for-symbols nil)
+
+    ;; Reduce font lock overhead
+    (setq font-lock-maximum-decoration t)
+    (setq font-lock-maximum-size (* 1024 1024))) ; 1MB limit
+#+end_src
+
+
+* Dired
+
+  =Dired= is the directory editor view of Emacs. It can be enhanced through
+  various extensions, most notably from ~dired-hacks~.
+
+  See below
+
+  
+** Dired-x
+ #+begin_src emacs-lisp
+   (use-package dired-x
+     :ensure nil
+     :hook (dired-mode-hook . dired-x-dired-mode)
+     :config
+     (setq dired-clean-up-buffers-too t
+           dired-guess-shell-alist-user
+           '(
+             ("\\.pdf\\'" "zathura" "xdg-open")
+             ("\\.djvu\\'" "zathura" "xdg-open")
+             ("\\.gp\\'" "tuxguitar" "xdg-open")
+             )
+           ))
+ #+end_src
+
+ #+RESULTS:
+ : t
+
+** Basic configuration
+
+#+begin_src emacs-lisp
+  (use-package dired
+    :ensure nil
+    :init
+    (setq dired-dwim-target t
+          dired-recursive-copies  'always
+          dired-recursive-deletes 'always
+          dired-hide-details-mode t
+          dired-listing-switches "-lagho --group-directories-first"))
+  #+end_src
+
+  #+RESULTS:
+  : t
+
+** Dired-quick-sort
+
+   It seems to be necessary to load it *after* ~all-the-icons~ for the latter to
+   take effect.
+
+   #+begin_src emacs-lisp
+     (use-package dired-quick-sort
+       :after dired all-the-icons-dired
+       ;; :config (dired-quick-sort-setup)
+       )
+   #+end_src
+
+   #+RESULTS:
+
+** Dired-narrow
+
+   [[https://cestlaz.github.io/post/using-emacs-57-dired-narrow/][Using Emacs 57]]
+
+   #+begin_src emacs-lisp
+     (use-package dired-narrow
+       :after dired
+       :ensure t
+       ;; Using Mike Zamansky's keybindings below
+       :bind (:map dired-mode-map
+              ("C-c C-n" . dired-narrow)
+              ("C-c C-f" . dired-narrow-fuzzy)
+              ("C-x C-N" . dired-narrow-regexp)))
+   #+end_src
+
+   #+RESULTS:
+   : dired-narrow-regexp
+
+
+** Dired-subtree
+
+   #+begin_src emacs-lisp
+    (defun rb/dired-subtree-toggle ()
+      (interactive)
+      (dired-subtree-toggle)
+      (revert-buffer))
+
+     (use-package dired-subtree
+       :after dired
+       :bind (:map dired-mode-map
+              ("<tab>"     . rb/dired-subtree-toggle)
+              ("<backtab>" . dired-subtree-cycle)))
+   #+end_src
+
+   #+RESULTS:
+   : dired-subtree-cycle
+
+** Nerd icons
+
+#+begin_src emacs-lisp
+  (use-package nerd-icons-dired
+    :hook
+    (dired-mode . nerd-icons-dired-mode))
+#+end_src
+
+** Dired-rainbow
+
+#+begin_src emacs-lisp
+  (use-package dired-rainbow
+    :after dired
+    :config
+    (progn
+      (dired-rainbow-define-chmod
+      directory "#2c3e50" "d.*")
+      (dired-rainbow-define html "#7f8c8d"
+      ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
+      (dired-rainbow-define xml "#d98c10"
+                            ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
+      (dired-rainbow-define
+       document
+       "#8e44ad"
+       ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx"))
+      (dired-rainbow-define
+       markdown
+       "#f1c40f"
+       ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
+      (dired-rainbow-define database
+                            "#9b59b6" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
+      (dired-rainbow-define media "#e67e22"
+                            ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac" "mkv"))
+      (dired-rainbow-define image "#2ecc71" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
+      (dired-rainbow-define log "#95a5a6" ("log"))
+      (dired-rainbow-define shell "#d35400" ("awk" "bash" "bat" "sed" "sh" "zsh" "vim"))
+      (dired-rainbow-define interpreted
+      "#1abc9c"
+      ("py" "ipynb" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "scala" "js"))
+      (dired-rainbow-define compiled "#34495e"
+                            ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp"
+                             "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java"
+                             "ml" "mli"))
+      (dired-rainbow-define executable "#2492db" ("exe" "msi" "byt" "cmi" "cmo" "cmx" "cma" "cmxs"))
+      (dired-rainbow-define compressed "#1abc9c"
+                            ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
+      (dired-rainbow-define packaged "#c0392b" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
+      (dired-rainbow-define encrypted "#f1c40f" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
+      (dired-rainbow-define fonts "#2492db" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
+      (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
+      (dired-rainbow-define vc "#0a74b9" ("git" "gitignore" "gitattributes" "gitmodules"))
+      (dired-rainbow-define-chmod executable-unix "#16a085" "-.*x.*")))
+
+#+end_src
+
+#+RESULTS:
+: t
+
+
+See [[https://github.com/purcell/diredfl/][diredfl]] (from Steve Purcell) to extended fontification for dired.
+
+
+
+* Perspective
+
+#+begin_src emacs-lisp
+  (use-package
+    perspective
+    :bind (("C-x b" . persp-switch-to-buffer*)
+           ("C-x k" . persp-kill-buffer*)
+           ("C-x C-b" . persp-list-buffers))
+                                          ; or use a nicer switcher, see below)
+    :custom (persp-mode-prefix-key
+             (kbd "C-c M-p"))
+                                          ; pick your own prefix key here
+    :config (persp-mode))
+#+end_src
+
+* Projectile
+
+#+begin_src emacs-lisp
+    ;; projectile
+    (use-package projectile
+      :ensure t
+      ;; :after helm
+      :delight '(:eval (concat "p-" (projectile-project-name)))
+      :diminish projectile-mode
+      :bind (:map projectile-mode-map
+                  ("C-c p" . projectile-command-map))
+      :init
+      (projectile-mode +1)
+      :config
+      (setq projectile-indexing-method 'alien
+            projectile-enable-caching t
+            ;;          projectile-completion-system 'helm
+            projectile-switch-project-action #'projectile-dired)
+      (setq projectile-globally-ignored-directories
+        (cl-remove-if (lambda (dir)
+                        (member dir '("*CVS")))
+                      projectile-globally-ignored-directories))
+)
+#+end_src
+
+#+RESULTS:
+: projectile-compile-project
+
+* Helm
+#+begin_src emacs-lisp
+      ;;helm
+      (use-package helm
+        :ensure    helm
+        :disabled  t
+        :config    (setq helm-ff-transformer-show-only-basename nil
+                         helm-buffers-fuzzy-matching            t
+                         helm-recentf-fuzzy-match               t
+                         helm-locate-fuzzy-match                t
+                         helm-ag-fuzzy-match                    t
+                         helm-fuzzy-match                       t
+                         helm-ff-auto-update-initial-value      t
+                         helm-input-idle-delay                  0.1
+                         helm-idle-delay                        0.1
+                         helm-split-window-in-side-p            t
+                         ;; Setting it to nil avoids to have unreachable p-prefixed command once you used p once
+                         ;; E.g, using helm-eshell-prompts renders eshell unreachable
+                         helm-move-to-line-cycle-in-source      nil
+                         helm-autoresize-max-height             40
+                         helm-autoresize-min-height             30
+                         helm-use-frame-when-more-than-two-windows nil)
+
+        :init (progn
+               (require 'helm-config)
+               (helm-mode t)
+               (helm-autoresize-mode t))
+
+        :bind (("C-x r l" . helm-bookmarks)
+               ("M-x"     . helm-M-x)
+               ("M-y"     . helm-show-kill-ring)
+               ("M-i"     . helm-imenu)
+               ("C-h a"   . helm-apropos)
+               ("C-x C-f" . helm-find-files)
+               ("C-x l"   . helm-locate)
+               ("C-x b"   . helm-buffers-list)
+               ("C-x p"   . helm-top)
+               ("C-x C-b" . helm-mini)
+               :map helm-find-files-map
+               ("C-c C-SPC" . helm-ff-run-toggle-auto-update))
+
+        :diminish helm-mode)
+
+    ;;  (define-key flyspell-mode-map (kbd "C-;") 'helm-flyspell-correct)
+
+  (use-package shell
+    :defer t
+    :bind (:map shell-mode-map
+                ("C-c C-l" . helm-comint-input-ring)))
+
+  (use-package helm-descbinds
+    :after     helm
+    :disabled  t
+;    :ensure    helm-descbinds
+    :bind      ("C-h b"   . helm-descbinds))
+
+  (use-package helm-projectile
+    :defer t
+    :disabled  t
+    ; :ensure    helm-projectile
+    :after     (helm projectile)
+    :bind      ("C-c h" . helm-projectile)
+    :init      (helm-projectile-on))
+
+  ;; (use-package helm-posframe
+  ;;   :after helm
+  ;;   :ensure t
+  ;;   :config
+  ;;   (setq helm-posframe-poshandler
+  ;;         #'posframe-poshandler-window-center)
+  ;;   (setq helm-posframe-width 100)
+  ;;   (helm-posframe-enable))
+
+  ;; Do not bind helm-swoop to C-s for now
+  (use-package helm-swoop
+    :after     helm
+    :defer     t
+    :disabled  t    ; :ensure    helm-swoop
+;;    :chords   ("xs" . helm-swoop)
+    :bind
+    (("C-c M-o" . helm-multi-swoop)))
+
+  (use-package helm-flyspell
+    :after helm
+    :disabled  t
+    :defer t
+;    :ensure t
+    :bind (:map flyspell-mode-map
+                ("C-;" . helm-flyspell-correct)))
+
+  (use-package helm-company
+    :after (helm company)
+    :defer t
+  ;  :ensure t
+    :disabled  t
+    :bind
+    (:map company-mode-map
+     ("C-:" . helm-company)
+     :map company-active-map
+     ("C-:" . helm-company)))
+             #+end_src
+
+             #+RESULTS:
+             : helm-company
+
+
+
+
+#+RESULTS:
+
+#+begin_src emacs-lisp
+  (use-package helm-ag
+    :commands   helm-ag
+    :disabled  t
+    :after     (helm ag)
+    :bind      ("C-c c a" . helm-ag)
+    :config
+    ;; use the word pointed by the curser as default entry for the search
+    ;; this also populates search for helm-projectile-ag
+    (setq helm-ag-insert-at-point 'word))
+#+end_src
+
+#+RESULTS:
+
+** Helm-dash
+   #+begin_src emacs-lisp
+     (use-package helm-dash
+       :disabled  t
+       :config
+       (setq helm-dash-docsets-path "~/.local/share/Zeal/Zeal/docsets")
+       (setq helm-dash-browser-func 'eww)
+       )
+
+   #+end_src
+
+
+   #+begin_src emacs-lisp
+     (use-package helm-pass ;;select and copy passwords from store to kill ring
+       :defer t
+       :disabled t
+       :after helm
+       :commands (helm-pass)
+       )
+
+   #+end_src
+
+
+   #+begin_src emacs-lisp
+   (use-package ace-jump-mode
+     :bind ("C-." . ace-jump-mode))
+   #+end_src
+
+
+
+** Helm-bbdb
+
+   #+begin_src emacs-lisp
+     (use-package helm-bbdb
+       :defer t
+       :disabled  t
+;       :ensure t
+       :chords ("aaa" . helm-bbdb))
+   #+end_src
+
+   #+RESULTS:
+   : helm-bbdb
+
+* Which key
+
+  #+begin_src emacs-lisp
+    ;; which-key displays available next keys + bound functions given a leader key
+    (use-package which-key
+      :delight
+      :config (which-key-mode 1))
+  #+end_src
+
+  #+RESULTS:
+  : t
+
+* Eshell
+
+** Resources
+
+   https://github.com/howardabrams/dot-files/blob/master/emacs-eshell.org
+
+   - =C-u M-x eshell= starts a new eshell
+
+** Eshell prompt personalization
+
+   https://gist.github.com/ekaschalk/f0ac91c406ad99e53bb97752683811a5
+
+#+begin_src emacs-lisp
+  (require 'dash)
+  (require 's)
+  (require 'cl)
+
+  (defmacro with-face (STR &rest PROPS)
+    "Return STR propertized with PROPS."
+    `(propertize ,STR 'face (list ,@PROPS)))
+
+  (defmacro esh-section (NAME ICON FORM &rest PROPS)
+    "Build eshell section NAME with ICON prepended to evaled FORM with PROPS."
+    `(setq ,NAME
+           (lambda () (when ,FORM
+                        (-> ,ICON
+                            (concat esh-section-delim ,FORM)
+                            (with-face ,@PROPS))))))
+
+  (defun esh-acc (acc x)
+    "Accumulator for evaluating and concatenating esh-sections."
+    (--if-let (funcall x)
+        (if (s-blank? acc)
+            it
+          (concat acc esh-sep it))
+      acc))
+
+
+  (defun esh-prompt-func ()
+    "Build `eshell-prompt-function'"
+    (concat esh-header
+            (-reduce-from 'esh-acc "" eshell-funcs)
+            "\n"
+            (propertize eshell-prompt-string
+            'face `(:foreground "#34495e"))))
+
+  (esh-section esh-dir
+               "\xf07c" ;  (faicon folder)
+               (abbreviate-file-name (eshell/pwd))
+               '(:foreground "#f1c40f"
+               :background "#2c3e50"
+               :weight bold :underline t))
+
+  (esh-section esh-git
+               ""
+               (magit-get-current-branch)
+               '(:foreground "#1abc9c"))
+
+  (esh-section esh-python
+               "" ;  (python icon)
+               pyvenv-virtual-env-name)
+
+  (esh-section esh-clock
+               "" ;  (clock icon)
+               (format-time-string "%H:%M" (current-time))
+               '(:foreground "#16a085"))
+  ;; Below I implement a "prompt number" section
+  (setq esh-prompt-num 0)
+  (add-hook 'eshell-exit-hook (lambda () (setq esh-prompt-num 0)))
+  (advice-add 'eshell-send-input :before
+              (lambda (&rest args) (setq esh-prompt-num (cl-incf esh-prompt-num))))
+
+  (esh-section esh-num
+               "\xf0c9" ;  (list icon)
+               (number-to-string esh-prompt-num)
+               '(:foreground "#9b59b6"))
+   #+end_src
+
+
+
+Extensions
+
+#+begin_src emacs-lisp
+  (use-package eshell
+    :defer t
+    :hook
+    (eshell-mode . 'eshell-cmpl-initialize)
+    (eshell-mode . (lambda ()
+                     (eshell/alias "e" "find-file $1")
+                     (eshell/alias "ff" "find-file $1")
+                     (eshell/alias "emacs" "find-file $1")
+                     (eshell/alias "ee" "find-file-other-window $1")
+
+                     (eshell/alias "gd" "magit-diff-unstaged")
+                     (eshell/alias "gds" "magit-diff-staged")
+                     (eshell/alias "d" "dired $1")
+
+                     ;; The 'ls' executable requires the Gnu version on the Mac
+                     (let ((ls (if (file-exists-p "/usr/local/bin/gls")
+                                   "/usr/local/bin/gls"
+                                 "/bin/ls")))
+                       (eshell/alias "ll" (concat ls " -AlohG --color=always")))))
+    (eshell-mode .
+                 (lambda ()
+                   (define-key eshell-mode-map (kbd "<tab>") 'completion-at-point)
+                   (define-key eshell-mode-map (kbd "C-c C-l") 'helm-eshell-history)
+                   ))
+    :config
+    ;; Separator between esh-sections
+    (setq esh-sep " ") ; or " | "
+
+    ;; Separator between an esh-section icon and form
+    (setq esh-section-delim " ")
+
+    ;; Eshell prompt header
+    (setq esh-header "\n ") ; or "\n┌─"
+
+    ;; Eshell prompt regexp and string. Unless you are varying the prompt by eg.
+    ;; your login, these can be the same.
+    (setq eshell-prompt-regexp "^$ ")
+    (setq eshell-prompt-string "$ ") ; or "└─> "
+
+    ;; Choose which eshell-funcs to enable
+    (setq eshell-funcs (list esh-dir esh-git esh-clock esh-num))
+
+    ;; Enable the new eshell prompt
+    (setq eshell-prompt-function 'esh-prompt-func)
+    (require 'esh-module)
+    ;;    (add-to-list 'eshell-modules-list 'eshell-tramp)
+    )
+#+end_src
+
+#+RESULTS:
+| tramp-eshell-directory-change | eshell-bookmark-setup | esh-autosuggest-mode | (lambda nil (define-key eshell-mode-map (kbd <tab>) 'completion-at-point) (define-key eshell-mode-map (kbd C-c C-l) 'helm-eshell-history)) | (lambda nil (eshell/alias e find-file $1) (eshell/alias ff find-file $1) (eshell/alias emacs find-file $1) (eshell/alias ee find-file-other-window $1) (eshell/alias gd magit-diff-unstaged) (eshell/alias gds magit-diff-staged) (eshell/alias d dired $1) (let ((ls (if (file-exists-p /usr/local/bin/gls) /usr/local/bin/gls /bin/ls))) (eshell/alias ll (concat ls  -AlohG --color=always)))) | eshell |
+
+#+begin_src emacs-lisp
+  ;; Eshell functions
+  (defun eshell/mkcd (file)
+    (progn (mkdir file)
+           (cd file)))
+
+  ;; From https://github.com/howardabrams/dot-files/blob/master/emacs-eshell.org
+  (defun eshell/gst (&rest args)
+    (magit-status (pop args) nil)
+    (eshell/echo))
+
+  (defun eshell/clear ()
+    "Clear the eshell buffer."
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (eshell-send-input)))
+
+  (defun eshell/mcd (dir)
+    "Create directory then cd to it"
+    (eshell/mkdir dir)
+    (eshell/cd dir))
+
+  (defun eshell/x ()
+    (eshell-write-history)
+    (eshell/exit))
+
+  (defun eshell/up (dir)
+    (eshell-up dir))
+
+  (defun eshell/pk (dir)
+    (eshell-up-peek dir))
+
+  (defun eshell/l (&rest args)
+    (eshell/ls "-l" args))
+
+  (defun eshell/la (&rest args)
+    (eshell/ls "-la" args))
+
+  (defun eshell/e (file)
+    (find-file file))
+
+  (defun eshell/d (&rest args)
+    (dired (pop args)))
+
+  (defun eshell/gst (&rest args)
+    (magit-status (pop args) nil)
+    (eshell/echo))
+
+  (defun eshell/j (&rest query)
+    (require 's)
+    (let* ((fasd (executable-find "fasd"))
+           (matches (thread-last (s-join " " query)
+                      (format "%s -ld %s" fasd)
+                      (shell-command-to-string)
+                      (s-trim)
+                      (s-lines)
+                      (mapcar 's-trim))))
+      (message "Matches: %s" matches)
+      (when-let (dir (first matches))
+        (eshell/cd dir))))
+#+end_src
+
+#+RESULTS:
+: eshell/j
+
+
+** Eshell-git-prompt
+ #+begin_src emacs-lisp
+;;   (use-package eshell-git-prompt
+;;     :ensure t
+;;     :after eshell
+;;     :init
+;;     (eshell-git-prompt-use-theme 'powerline)
+ ;;    )
+ #+end_src
+
+ #+RESULTS:
+
+** Eshell autosuggest
+
+#+begin_src emacs-lisp
+  (use-package esh-autosuggest
+    :hook (eshell-mode . esh-autosuggest-mode)
+    ;; If you have use-package-hook-name-suffix set to nil, uncomment and use the
+    ;; line below instead:
+    ;; :hook (eshell-mode-hook . esh-autosuggest-mode)
+    :ensure t
+    :config
+    (defun setup-eshell-helm-completion ()
+    (define-key eshell-mode-map [remap eshell-pcomplete] 'helm-esh-pcomplete))
+    (add-hook 'eshell-mode-hook #'setup-eshell-helm-completion))
+
+  ;; (when (require 'helm-fish-completion nil 'noerror)
+  ;;   (define-key shell-mode-map (kbd "<tab>") 'helm-fish-completion)
+  ;;   (setq helm-esh-pcomplete-build-source-fn
+  ;;   #'helm-fish-completion-make-eshell-source))
+#+end_src
+
+#+RESULTS:
+
+** Eshell-bookmark
+
+ https://github.com/Fuco1/eshell-bookmark
+
+ #+begin_src emacs-lisp
+ (use-package eshell-bookmark
+   :defer 2
+   :ensure t
+   :hook (eshell-mode . eshell-bookmark-setup))
+ #+end_src
+
+
+ After this, use the bookmark features as usual:
+     - capture a bookmark to eshell with ~C-x r m~
+     - restore an eshell with ~C-x r l~
+
+
+** Other Eshell add-ons
+
+   #+begin_src emacs-lisp
+     (use-package fish-completion
+       :disabled t
+       :defer t
+       :after eshell
+       :config
+       (global-fish-completion-mode))
+   #+end_src
+
+   #+RESULTS:
+
+* Elfeed
+
+  See the configuration at [[http://nullprogram.com/blog/2015/v2/03/]] .
+
+  The [[#no_littering]] package redefines ~rmh-elfeed-org-files~. So Elfeed-org
+  configuration needs to happen after.
+
+  The 2 functions below were shamelessly taken from [[https://pragmaticemacs.wordpress.com/2016/08/17/read-your-rss-feeds-in-emacs-with-elfeed/][pragmatic Emacs]]
+
+  #+name: elfeed-helpers
+  #+begin_src emacs-lisp
+    (defun rb/elfeed-save-db-and-exit ()
+      "Wrapper to save the elfeed db to disk before burying buffer"
+      (interactive)
+      (elfeed-db-save)
+      (quit-window))
+
+    ;; functions to support syncing .elfeed between machines
+    ;; makes sure elfeed reads index from disk before launching
+    (defun rb/elfeed-load-db-and-open ()
+      "Wrapper to load the elfeed db from disk before opening"
+      (interactive)
+      (require 'elfeed)
+      (elfeed-db-load)
+      (elfeed)
+      (elfeed-search-update--force))
+
+    (defun rb/elfeed-timer-save ()
+      "Run elfeed-db-save every 5 minutes automatically"
+      (interactive)
+      (run-with-timer
+       5
+       300
+       'elfeed-db-save))
+
+    (defvar rb/elfeed--save-after-update-timer nil
+      "Pending timer that saves the elfeed DB once feed fetches drain.")
+
+    (defun rb/elfeed-update-and-save ()
+      "Fetch all elfeed feeds and save the database once fetches complete.
+
+Safe to invoke headlessly via `emacsclient --eval', e.g. from a systemd
+user timer.  The DB is loaded if needed, an update is triggered, and a
+polling timer saves the DB when the fetch queue drains."
+      (interactive)
+      (require 'elfeed)
+      (elfeed-db-load)
+      (elfeed-update)
+      (when (timerp rb/elfeed--save-after-update-timer)
+        (cancel-timer rb/elfeed--save-after-update-timer))
+      (setq rb/elfeed--save-after-update-timer
+            (run-at-time
+             15 15
+             (lambda ()
+               (when (and (zerop (elfeed-queue-count-total))
+                          (zerop (elfeed-queue-count-active)))
+                 (cancel-timer rb/elfeed--save-after-update-timer)
+                 (setq rb/elfeed--save-after-update-timer nil)
+                 (elfeed-db-save)
+                 (message "rb/elfeed-update-and-save: db saved at %s"
+                          (format-time-string "%F %T")))))))
+
+    (defvar rb/browsers
+      '(("EWW"      . eww-browse-url)
+        ("Firefox"  . browse-url-firefox)
+        ("Chromium" . browse-url-chromium)
+        ("xdg-open" . browse-url-xdg-open))
+      "Alist of browser names to browse-url functions for `rb/elfeed-open-in-browser'.")
+
+    (defun rb/elfeed-open-in-browser ()
+      "Open the current elfeed entry's link, prompting for which browser to use."
+      (interactive)
+      (let* ((entry (cond
+                     ((derived-mode-p 'elfeed-show-mode)
+                      elfeed-show-entry)
+                     ((derived-mode-p 'elfeed-search-mode)
+                      (elfeed-search-selected :ignore-region))
+                     (t (user-error "Not in an elfeed buffer"))))
+             (url (elfeed-entry-link entry))
+             (choice (completing-read "Open in browser: "
+                                      (mapcar #'car rb/browsers) nil t))
+             (browser-fn (cdr (assoc choice rb/browsers))))
+        (funcall browser-fn url)))
+#+end_src
+
+This is useful if one wants to "save" some posts for later reads
+  #+begin_src emacs-lisp
+    (defun rb/elfeed-mark-for-later ()
+      "Mark selected entries for maybe later reading, removing them from unread."
+      (interactive)
+      (let ((saved-elfeed-search-remain-on-entry elfeed-search-remain-on-entry))
+        (setq elfeed-search-remain-on-entry t)
+        ;; stay on selected entries to untag/tag
+        (elfeed-search-untag-all
+         'unread)
+        (elfeed-search-tag-all
+         'maybe_later)
+        (setq elfeed-search-remain-on-entry
+              saved-elfeed-search-remain-on-entry)))
+  #+end_src
+
+Rewrite erros from Vitalik's blog feed
+
+#+begin_src emacs-lisp
+  (defun my/rewrite-vitalik-url (url)
+    "Rewrite vitalik.ca URLs to vitalik.eth.limo"
+    (if (string-match-p "^https://vitalik\\.ca" url)
+        (replace-regexp-in-string "^https://vitalik\\.ca" "https://vitalik.eth.limo" url)
+      url))
+
+  ;; Apply URL rewriting when visiting entries
+  (defun my/elfeed-show-visit-advice (orig-fun &optional use-generic-p)
+    "Advice to rewrite URLs before visiting"
+    (let* ((entry elfeed-show-entry)
+           (link (elfeed-entry-link entry))
+           (rewritten-link (my/rewrite-vitalik-url link)))
+      (unless (string= link rewritten-link)
+        (setf (elfeed-entry-link entry) rewritten-link))
+      (funcall orig-fun use-generic-p)))
+
+
+
+#+end_src
+
+  #+begin_src emacs-lisp
+    (use-package elfeed
+      :after org
+      :ensure t
+      :defer t
+      :bind (("C-c e" . rb/elfeed-load-db-and-open)
+             :map elfeed-search-mode-map
+             ("q" . rb/elfeed-save-db-and-exit)
+             ("@" . rb/elfeed-mark-for-later)
+             ("B" . rb/elfeed-open-in-browser)
+             :map elfeed-show-mode-map
+             ("B" . rb/elfeed-open-in-browser))
+      :hook (elfeed-show-mode . (lambda () (set-fill-column 80)))
+      :config
+      (setq elfeed-enclosure-default-dir "~/media/music/podcasts/"
+            elfeed-search-remain-on-entry nil)
+
+      ;; Entries older than 2 weeks are marked as read
+      (add-hook 'elfeed-new-entry-hook
+                (elfeed-make-tagger :before "2 weeks ago"
+                                    :remove 'unread
+                                    :add 'maybe_later))
+
+      (defface emacs-elfeed-entry
+        '((t :weight bold :underline "#f1c40f"))
+        "Marks an emacs Elfeed entry.")
+
+      (push '(emacs emacs-elfeed-entry) elfeed-search-face-alist)
+
+      (defface life-elfeed-entry '((t :background "#dddddd"))
+        "Marks an life Elfeed entry.")
+
+      (push '(life life-elfeed-entry) elfeed-search-face-alist)
+      ;; '(:height 1.0 :weight bold :foreground "#005522" :background "#EFFFEF"))
+
+      (defface comics-elfeed-entry
+        '((t :weight bold :underline "#9b59b6"))
+        "Marks an comics Elfeed entry.")
+
+      (push '(comics comics-elfeed-entry) elfeed-search-face-alist)
+
+      (defface ocaml-elfeed-entry
+        '((t :weight bold :underline "#2c3e50"))
+        "Marks an ocaml Elfeed entry.")
+
+      (push '(ocaml ocaml-elfeed-entry) elfeed-search-face-alist)
+
+      (defface security-elfeed-entry
+        '((t :weight bold :underline "#e67e22"))
+        "Marks a tagged security Elfeed entry.")
+
+      (push '(security security-elfeed-entry) elfeed-search-face-alist)
+
+      (defface engineering-elfeed-entry
+        '((t :weight bold :underline "#2ecc71"))
+        "Marks a tagged software engineering Elfeed entry.")
+
+      (push '(engineering engineering-elfeed-entry) elfeed-search-face-alist)
+
+      (defface podcasts-elfeed-entry
+        '((t :weight bold :background "#1abc9c"))
+        "Marks a tagged software podcasts Elfeed entry.")
+
+      (push '(podcasts podcasts-elfeed-entry) elfeed-search-face-alist)
+
+      ;; Define some special keys for search
+      (define-key elfeed-search-mode-map (kbd "e")
+                  (lambda () (interactive)
+                    (elfeed-search-set-filter "@6-months-ago +unread +emacs -sx")))
+
+      (define-key elfeed-search-mode-map (kbd "c")
+                  (lambda () (interactive)
+                    (elfeed-search-set-filter "@6-months-ago +unread")))
+
+      (define-key elfeed-search-mode-map (kbd "d")
+                  (lambda () (interactive)
+                    (elfeed-search-set-filter "@12-months-ago +unread")))
+
+      (define-key elfeed-search-mode-map (kbd "m")
+                  (lambda () (interactive)
+                    (elfeed-search-set-filter "+music")))
+
+      ;; Rewrite some URLs before visiting
+      (advice-add 'elfeed-show-visit :around #'my/elfeed-show-visit-advice)
+      )
+
+    ;; (define-key elfeed-search-mode-map (kbd "d")
+    ;;   (lambda () (interactive)
+    ;;     (elfeed-search-set-filter "bendersky")))
+
+
+    (use-package elfeed-org
+      :ensure t
+      :after elfeed
+      :config
+      (elfeed-org)
+      (setq rmh-elfeed-org-files (list "~/documents/org/elfeed.org")))
+
+
+    (use-package elfeed-goodies
+      :disabled t
+      :after elfeed
+      ;;        :config
+      ;;  (elfeed-goodies/setup))
+      )
+  #+end_src
+
+
+
+
+* Notmuch
+
+  Disclaimer from notmuch's maintainer
+
+  #+begin_quote
+  It is not recommended to install notmuch Emacs from the ELPA.
+  The version there is likely not in sync with the CLI interface.
+  #+end_quote
+
+  #+begin_src emacs-lisp
+    ;; (setq message-send-mail-function 'smtpmail-send-it
+    ;;     smtpmail-smtp-server      "mx.intra.cea.fr"
+    ;;     smtpmail-smtp-service     25)
+
+    (setq message-send-mail-function 'smtpmail-send-it
+          smtpmail-smtp-server      "smtp.gmail.com"
+          smtpmail-smtp-service     587
+          smtpmail-debug-info       t
+          smtpmail-starttls-credentials '(("smtp.gmail.com" "587" nil nil))
+          starttls-extra-arguments nil
+          starttls-gnutls-program "gnutls-cli"
+          starttls-extra-arguments nil
+          starttls-use-gnutls t)
+  #+end_src
+
+  #+RESULTS:
+  : t
+
+  I can add that I indeed had a sync problem. I've installed it with the
+  distribution's package manager (i.e., ~pacman~/~yaourt~ for Arch, ~nixpkgs~
+  for NixOS).
+
+  #+begin_src emacs-lisp :tangle no
+    ;; (require 'notmuch)
+
+    ;; (global-set-key (kbd "C-c m n") 'notmuch)
+    ;; (global-set-key (kbd "M-s n") 'notmuch)
+
+    ;; ;;    (setq message-send-mail-function 'message-send-mail-with-sendmail)
+    ;;  ;;;  use msmtp instead of sendmail
+    ;; ;;    (setq sendmail-program "/usr/sbin/msmtp")
+    ;; ;;;;  This is needed to allow msmtp to do its magic:
+    ;; ;;    (setq message-sendmail-f-is-evil 't)
+
+    ;; (setq message-sendmail-extra-arguments '("--read-envelope-from")
+    ;;       message-sendmail-envelope-from 'header
+    ;;       message-kill-buffer-on-exit t
+    ;;       mail-host-address nil
+    ;;       user-full-name    "Richard Bonichon"
+    ;;       user-mail-address "richard.bonichon@gmail.com")
+
+    ;; (setq notmuch-maildir-use-notmuch-insert t
+    ;;       ;; stores postponed messages to the specified directory
+    ;;       message-directory "drafts"
+    ;;       ;; set sent mail directory
+    ;;       notmuch-fcc-dirs "sent -unread -inbox +sent"
+    ;;       mail-user-agent 'message-user-agent
+    ;;       message-signature-file "~/.signature"
+    ;;       ;; read & verify encrypted/signed messages
+    ;;       notmuch-crypto-process-mime t
+    ;;       ;; default to show all tags in hello page
+    ;;       notmuch-show-all-tags-list t
+    ;;       notmuch-address-save-filename "~/.emacs.d/nm-address-cache")
+#+end_src
+
+#+RESULTS:
+: ~/.emacs.d/nm-address-cache
+
+I use saved searches like folders in a normal mailer. For all daily concerns, I
+add a saved search on the top of the ~~*notmuch-hello*~ buffer. The other are
+accessible either through clicks via their tags -- that's why
+~notmuch-show-all-tags-list~ is set to true -- or trough the normal search
+function of notmuch.
+
+#+begin_src emacs-lisp
+  ;; (setq notmuch-saved-searches
+  ;;       '((:name "unread"    :query "tag:unread"   :sort-order oldest-first :key "u")
+  ;;         (:name "binsec"    :query "tag:binsec or tag:binsec-group" :sort-order newest-first :key "b")
+  ;;         (:name "important" :query "tag:flagged" :sort-order newest-first :key "f")
+  ;;         (:name "inbox"     :query "tag:inbox"    :sort-order newest-first :key "i")
+  ;;         (:name "projects"  :query "tag:projects" :sort-order newest-first :key "p" )
+  ;;         (:name "students"  :query "tag:student"  :sort-order newest-first :key "s")
+  ;;         (:name "all mail"  :query "*" :key "a")))
+
+  ;; --- OVH (apepeyronnette) profile — synced by `mbsync ape' into ~/.mail/ape ---
+  ;; (global-set-key (kbd "C-c m n") #'notmuch)
+
+  ;; `:search-type tree' opens each saved search in the threaded tree view.
+  (setq notmuch-saved-searches
+        '((:name "ape inbox" :query "folder:ape/Inbox" :sort-order newest-first :search-type tree :key "o")
+          (:name "ape all"   :query "path:ape/**"      :sort-order newest-first :search-type tree :key "O")
+          (:name "unread"    :query "tag:unread"       :sort-order oldest-first :search-type tree :key "u")
+          (:name "inbox"     :query "tag:inbox"        :sort-order newest-first :search-type tree :key "i")
+          (:name "flagged"   :query "tag:flagged"      :sort-order newest-first :search-type tree :key "f")
+          (:name "all mail"  :query "*"                :search-type tree :key "a")))
+
+  ;; File carbon-copies of sent OVH mail into the OVH "Sent Messages" maildir
+  (setq notmuch-fcc-dirs
+        '(("parents.delegues@apepeyronnette.com" . "ape/Sent Messages -unread -inbox +sent")
+          (".*" . "sent -unread -inbox +sent")))
+
+  ;; --- Reply From is driven by the matching mu4e context (profile) ---
+  ;; The mu4e contexts (see the Mu4e section) are the single source of truth
+  ;; for "which identity goes with which maildir".  When replying in notmuch,
+  ;; we look up the context matching the replied-to message's maildir and use
+  ;; its `user-mail-address'/`user-full-name' as the From.  Maildirs with no
+  ;; matching context fall back to notmuch's default (primary/other_email).
+  (defun rb/mu4e-maildir-of-file (file)
+    "Return the mu4e maildir (e.g. \"/ape/Inbox\") for absolute FILE, or nil."
+    (let ((root (directory-file-name (expand-file-name mu4e-maildir)))
+          (f (expand-file-name file)))
+      (when (string-prefix-p root f)
+        (let ((dir (file-name-directory (substring f (length root)))))
+          (directory-file-name
+           (replace-regexp-in-string "/\\(cur\\|new\\|tmp\\)/\\'" "" dir))))))
+
+  (defun rb/notmuch-context-from (query-string)
+    "From string from the mu4e context matching QUERY-STRING's maildir, or nil."
+    (when (and query-string (require 'mu4e nil t))
+      (let* ((file (car (ignore-errors
+                          (process-lines notmuch-command "search" "--output=files"
+                                         "--limit=1" query-string))))
+             (maildir (and file (rb/mu4e-maildir-of-file file)))
+             (ctx (and maildir (mu4e-context-determine (list :maildir maildir))))
+             (vars (and ctx (mu4e-context-vars ctx)))
+             (addr (cdr (assq 'user-mail-address vars)))
+             (name (or (cdr (assq 'user-full-name vars)) user-full-name)))
+        (when addr (if name (format "%s <%s>" name addr) addr)))))
+
+  (defun rb/notmuch-mua-new-reply-context (orig query-string &optional prompt-for-sender reply-all duplicate)
+    "Use the matching mu4e context's identity as the reply From."
+    (let ((from (and (not prompt-for-sender) (rb/notmuch-context-from query-string))))
+      (if from
+          (let ((select-active-regions nil))
+            (notmuch-mua-reply query-string from reply-all duplicate)
+            (deactivate-mark))
+        (funcall orig query-string prompt-for-sender reply-all duplicate))))
+
+  ;; Drop the previous ape-specific advice if a running session still has it.
+  (when (fboundp 'rb/notmuch-mua-new-reply-ape)
+    (advice-remove 'notmuch-mua-new-reply #'rb/notmuch-mua-new-reply-ape))
+  (advice-add 'notmuch-mua-new-reply :around #'rb/notmuch-mua-new-reply-context)
+#+end_src
+
+
+
+* COMMENT Old
+
+#+begin_src emacs-lisp :tangle no
+  ;; (eval-after-load 'notmuch-search
+  ;;   '(define-key notmuch-search-mode-map "`" 'notmuch-show-apply-tag-macro))
+
+  ;; (eval-after-load 'notmuch-show
+  ;;   '(define-key notmuch-show-mode-map "`" 'notmuch-show-apply-tag-macro))
+
+  ;; ;; The variable below does not make much sense anymore. I'll leave it as a reminder.
+  ;; ;; (setq
+  ;; ;;  notmuch-show-tag-macro-alist
+  ;; ;;  '(
+  ;; ;;    '("a" "+post" "+account-creation" "-inbox" "-unread")
+  ;; ;;    '("o" "+post" "-inbox" "-unread")
+  ;; ;;    '("v" "+vanuxeem" "-inbox" "-unread")
+  ;; ;;    '("c" "+ci" "-inbox" "-unread")
+  ;; ;;    )
+  ;; ;;  )
+
+  ;; (defun notmuch-show-apply-tag-macro (key)
+  ;;   (interactive "k")
+  ;;   (let ((macro (assoc key notmuch-show-tag-macro-alist)))
+  ;;     (apply 'notmuch-show-tag-message (cdr macro))))
+
+  ;; (key-chord-define
+  ;;  notmuch-search-mode-map "pp"
+  ;;  (lambda (&optional beg end)
+  ;;    "mark thread as post"
+  ;;    (interactive (notmuch-search-interactive-region))
+  ;;    (notmuch-search-tag (list "+post" "-inbox" "-unread") beg end)))
+
+  ;;  (defun nm/mark-ci
+  ;;      (&optional beg end)
+  ;;    "mark thread as ci"
+  ;;    (interactive (notmuch-search-interactive-region))
+  ;;    (notmuch-search-tag (list "+ci" "-inbox" "-unread") beg end))
+
+  ;; (key-chord-define notmuch-search-mode-map "av" 'nm/mark-ci)
+  ;; (define-key notmuch-show-mode-map "S" #'helm-notmuch)
+  ;; (define-key notmuch-hello-mode-map "S" #'helm-notmuch)
+  ;; (define-key notmuch-search-mode-map "S" #'helm-notmuch)
+  #+end_src
+
+  #+RESULTS:
+
+* Mu4e
+
+
+  #+begin_src emacs-lisp
+        (when (and (executable-find "mu") (eq system-type 'darwin))
+          (use-package mu4e
+            :ensure nil
+            :config
+            (setq mu4e-mu-binary (executable-find "mu"))
+            (setq mu4e-maildir "~/.maildir")))
+
+        ;; --- OVH (apepeyronnette) profile — active on this machine ---
+        ;; Mailbox is synced by `mbsync ape' into ~/.mail/ape.
+        (when (executable-find "mu")
+          (with-eval-after-load 'mu4e
+            (setq mu4e-mu-binary (executable-find "mu")
+                  mu4e-maildir "~/.mail"
+                  mu4e-get-mail-command "mbsync ape"
+                  mu4e-change-filenames-when-moving t ; needed for mbsync
+                  mu4e-update-interval (* 5 60)
+                  mu4e-attachment-dir "~/downloads/attachments"
+                  mu4e-compose-format-flowed t)
+
+            (setq mu4e-contexts
+                  (list
+                   (make-mu4e-context
+                    :name "ape"
+                    :enter-func (lambda () (mu4e-message "mu4e OVH (ape) context"))
+                    :match-func
+                    (lambda (msg)
+                      (when msg
+                        (string-prefix-p "/ape" (mu4e-message-field msg :maildir))))
+                    :vars '((user-mail-address . "parents.delegues@apepeyronnette.com")
+                            (user-full-name    . "Parents délégués Peyronnette")
+                            (mu4e-drafts-folder . "/ape/Drafts")
+                            (mu4e-sent-folder   . "/ape/Sent Messages")
+                            (mu4e-trash-folder  . "/ape/Trash")
+                            (mu4e-refile-folder . "/ape/Inbox")
+                            (smtpmail-smtp-user    . "parents.delegues@apepeyronnette.com")
+                            (smtpmail-smtp-server  . "ssl0.ovh.net")
+                            (smtpmail-smtp-service . 587)
+                            (smtpmail-stream-type  . starttls)))))
+
+            (setq mu4e-maildir-shortcuts
+                  '(("/ape/Inbox"         . ?i)
+                    ("/ape/Sent Messages" . ?s)
+                    ("/ape/Trash"         . ?t)))))
+    ;;     (use-package mu4e
+        ;;       :ensure mu4e
+        ;;       :config
+        ;;       (setq mu4e-get-mail-command "mbsync -a"
+        ;;             mu4e-change-filenames-when-moving t ; needed for mbsync
+        ;;             mu4e-update-interval (* 5 60)
+        ;;             mu4e-maildir "~/.mail"
+        ;;             mu4e-attachment-dir "~/Downloads"
+        ;;             mu4e-compose-format-flowed t)
+
+        ;;       (setq mu4e-contexts
+        ;;             (list
+        ;;              ;; Work account
+        ;;              (make-mu4e-context
+        ;;               :name "gmail"
+        ;;               :enter-func
+        ;;               (lambda () (mu4e-message "mu4e gmail context"))
+        ;;               :leave-func
+        ;;               (lambda () (setq mu4e-maildir-list nil))
+        ;;               :match-func
+        ;;               (lambda (msg)
+        ;;                 (when msg
+        ;;                   (string-prefix-p "/gmail" (mu4e-message-field msg :maildir))))
+        ;;               :vars '((user-mail-address . "richard.bonichon@gmail.com")
+        ;;                       (user-full-name    . "Richard Bonichon")
+        ;;                       (smtpmail-smtp-server  . "smtp.gmail.com")
+        ;;                       (smtpmail-smtp-service . 587)
+        ;;                       (smtpmail-stream-type  . starttls)
+        ;;                       (smtpmail-starttls-credentials . '(("smtp.gmail.com" "587" nil nil)))
+        ;;                       (starttls-gnutls-program . "gnutls-cli")
+        ;;                       (starttls-extra-arguments . nil)
+        ;;                       (starttls-use-gnutls . t)
+        ;;                       (mu4e-drafts-folder  . "/gmail/[Gmail]/Drafts")
+        ;;                       (mu4e-sent-folder  . "/gmail/[Gmail]/Sent Mail")
+        ;;                       (mu4e-refile-folder  . "/gmail/[Gmail]/All Mail")
+        ;;                       (mu4e-trash-folder  . "/gmail/[Gmail]/Trash")))
+        ;;              (make-mu4e-context
+        ;;               :name "nlabs"
+        ;;               :match-func
+        ;;               (lambda (msg)
+        ;;                 (when msg
+        ;;                   (string-prefix-p "/nlabs" (mu4e-message-field msg :maildir))))
+        ;;               :enter-func
+        ;;               (lambda () (mu4e-message "mu4e nomadic context"))
+        ;;               :leave-func
+        ;;               (lambda () (setq mu4e-maildir-list nil))
+        ;;               :vars '((user-mail-address . "richard.bonichon@nomadic-labs.com")
+        ;;                       (user-full-name    . "Richard Bonichon")
+        ;;                       (smtpmail-smtp-server  . "smtp.gmail.com")
+        ;;                       (smtpmail-smtp-service . 587)
+        ;;                       (smtpmail-stream-type  . starttls)
+        ;;                       (smtpmail-smtp-user  . "richard.bonichon@nomadic-labs.com")
+        ;; ;;                      (smtpmail-starttls-credentials . '(("smtpGmail1" "587" nil nil)))
+        ;;                       (mu4e-drafts-folder  . "/nlabs/[Gmail]/Drafts")
+        ;;                       (mu4e-sent-folder  . "/nlabs/[Gmail]/Sent Mail")
+        ;;                       (mu4e-refile-folder  . "/nlabs/[Gmail]/All Mail")
+        ;;                       (mu4e-trash-folder  . "/nlabs/[Gmail]/Trash")))
+        ;;              )
+        ;;             ))
+#+end_src
+
+#+RESULTS:
+: t
+
+
+
+* Ivy/Counsel
+
+
+  #+begin_src emacs-lisp
+  (use-package ivy
+    :disabled t
+    :defer t
+    :bind (
+;;           ("C-x b" . ivy-switch-buffer)
+;;           ("C-c C-r" . ivy-resume)
+           ("C-'" . ivy-avy)
+           )
+    :init (ivy-mode 1)
+    :config
+    (setq ivy-height 20
+          ivy-wrap   t
+          ivy-use-virtual-buffers t
+          enable-recursive-minibuffers t
+          )
+    )
+  #+end_src
+
+  #+RESULTS:
+  : ivy-avy
+
+  #+begin_src emacs-lisp
+    (use-package smex
+      :defer t
+      :disabled t
+      )
+
+  #+end_src
+
+  #+RESULTS:
+
+  #+begin_src emacs-lisp
+    (use-package ivy-hydra
+      :defer t
+      :disabled t
+      )
+  #+end_src
+
+  #+RESULTS:
+
+  #+begin_src emacs-lisp
+    (use-package counsel
+      :disabled t
+      :defer t
+      ;; :bind (
+      ;;        ("M-x"     . counsel-M-x)
+      ;;        ("M-y"     . counsel-yank-pop)
+      ;;        ("C-h v"   . counsel-describe-variable)
+      ;;        ("C-h f"   . counsel-describe-function)
+      ;;        ("C-h a"   . counsel-apropos)
+      ;;        ("C-h b"   . counsel-descbinds)
+      ;;        ("C-x C-f" . counsel-find-file)
+      ;;        ("C-x l"   . counsel-locate)
+      ;;        ("C-c k"   . counsel-ag)
+      ;;        ("C-c g"   . counsel-grep)
+      ;;        )
+      )
+
+  #+end_src
+
+  #+RESULTS:
+
+  #+begin_src emacs-lisp
+  (use-package counsel-projectile
+    :disabled t
+    :defer t
+;;    :init
+;;    (counsel-projectile-mode)
+    )
+#+end_src
+
+#+RESULTS:
+
+** Swiper
+#+begin_src emacs-lisp
+    (use-package swiper
+      :defer t
+      :disabled t
+      :bind (
+  ;;           ("C-c C-s" . swiper)
+  ;;           ("C-s" . counsel-grep-or-swiper)
+             )
+      )
+#+end_src
+
+#+RESULTS:
+
+** Ivy-pass
+
+   Interface with ~pass~
+
+   #+begin_src emacs-lisp
+     (use-package ivy-pass
+       :defer t
+       :disabled t
+     )
+   #+end_src
+
+   #+RESULTS:
+
+* Windmove
+
+  Makes it easier to navigate around window.
+  The bindings that I use are taken from [[https://www.emacswiki.org/emacs/WindMove][Emacs wiki]].
+
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c <left>")  'windmove-left)
+(global-set-key (kbd "C-c <right>") 'windmove-right)
+(global-set-key (kbd "C-c <up>")    'windmove-up)
+(global-set-key (kbd "C-c <down>")  'windmove-down)
+
+(defvar sacha/windmove-map (make-sparse-keymap))
+(define-key sacha/windmove-map "h" 'windmove-left)
+(define-key sacha/windmove-map "j" 'windmove-up)
+(define-key sacha/windmove-map "k" 'windmove-down)
+(define-key sacha/windmove-map "l" 'windmove-right)
+(define-key sacha/windmove-map (kbd "<left>")  'windmove-left)
+(define-key sacha/windmove-map (kbd "<up>")    'windmove-up)
+(define-key sacha/windmove-map (kbd "<down>")  'windmove-down)
+(define-key sacha/windmove-map (kbd "<right>") 'windmove-right)
+;; (key-chord-define-global "zx"     sacha/windmove-map)
+#+end_src
+
+#+RESULTS:
+: (keymap (right . windmove-right) (down . windmove-down) (up . windmove-up) (left . windmove-left) (108 . windmove-right) (107 . windmove-down) (106 . windmove-up) (104 . windmove-left))
+
+* Direnv
+
+  Use ~M-x direnv-edit~ to edit direnv file dominating current directory.
+
+#+begin_src emacs-lisp
+  (use-package direnv
+    :config (direnv-mode) :disabled t)
+
+  (use-package envrc :config (envrc-global-mode))
+#+end_src
+
+#+RESULTS:
+: t
+
+* Docker
+
+#+begin_src emacs-lisp
+  (use-package docker :defer t)
+
+
+  (use-package dockerfile-mode :defer t)
+
+
+  (use-package docker-tramp
+    :after docker
+    :config (add-to-list 'tramp-remote-path 'tramp-own-remote-path))
+#+end_src
+
+* Vterm
+
+#+begin_src emacs-lisp
+  (use-package vterm
+    :config
+    (setq vterm-max-scrollback 5000000))
+#+end_src
+
+#+RESULTS:
+: t
+
+* Eat
+
+#+begin_src emacs-lisp
+  (use-package eat
+    :ensure t
+    :commands (eat))
+#+end_src
+
+* Project terminals
+
+Project-scoped =vterm= and =eat=, mirroring =projectile-run-vterm= /
+=projectile-run-eat= but anchored on built-in =project.el=.  Each command
+reuses the project's terminal buffer (named =*vterm PROJECT*= / =*eat
+PROJECT*=), or starts a fresh one with a prefix argument.  Bound under the
+=project-prefix-map= (=C-x p t= / =C-x p T=) and added to the project switch
+menu.  =C-x p C= starts (or reuses) a Claude Code instance for the project,
+named =*claude:PROJECT*= so each project keeps its own context.
+
+#+begin_src emacs-lisp
+  (defun rb--project-root-and-name ()
+    "Return (ROOT . NAME) for the current project.
+  Uses project.el, falling back to `default-directory' outside a project."
+    (let ((root (if-let ((proj (project-current)))
+                    (project-root proj)
+                  default-directory)))
+      (cons root (file-name-nondirectory (directory-file-name root)))))
+
+  (defun rb--project-run-terminal (kind starter arg)
+    "Open or reuse a KIND terminal rooted at the current project.
+  STARTER creates a terminal in `default-directory'.  Reuse the project's
+  existing KIND terminal unless ARG is non-nil, in which case always start a
+  new one."
+    (pcase-let ((`(,root . ,name) (rb--project-root-and-name)))
+      (let ((bufname (format "*%s %s*" kind name)))
+        (if-let ((buf (and (not arg) (get-buffer bufname))))
+            (pop-to-buffer-same-window buf)
+          (let ((default-directory root))
+            (funcall starter))
+          (rename-buffer bufname arg)))))
+
+  (defun rb/project-vterm (&optional arg)
+    "Open (or switch to) a vterm rooted at the current project.
+  With prefix ARG, always start a new vterm."
+    (interactive "P")
+    (rb--project-run-terminal "vterm" #'vterm arg))
+
+  (defun rb/project-eat (&optional arg)
+    "Open (or switch to) an eat terminal rooted at the current project.
+  With prefix ARG, always start a new eat terminal."
+    (interactive "P")
+    (rb--project-run-terminal "eat" #'eat arg))
+
+  (declare-function claude-code-multi-new "claude-code-multi")
+
+  (defun rb/project-claude (&optional arg)
+    "Open (or switch to) a Claude Code instance rooted at the current project.
+  The instance buffer is named after the project (*claude:NAME*), so each
+  project keeps its own context.  With prefix ARG, always start a new one."
+    (interactive "P")
+    (pcase-let ((`(,root . ,name) (rb--project-root-and-name)))
+      (let* ((bufname (format "*claude:%s*" name))
+             (buf (and (not arg) (get-buffer bufname))))
+        (if (and buf (get-buffer-process buf))
+            (pop-to-buffer buf)
+          (let ((default-directory root))
+            (claude-code-multi-new name))))))
+
+  (with-eval-after-load 'project
+    (define-key project-prefix-map "t" #'rb/project-vterm)
+    (define-key project-prefix-map "T" #'rb/project-eat)
+    (define-key project-prefix-map "C" #'rb/project-claude)
+    (when (listp project-switch-commands)
+      (add-to-list 'project-switch-commands '(rb/project-vterm "Vterm") t)
+      (add-to-list 'project-switch-commands '(rb/project-eat "Eat") t)
+      (add-to-list 'project-switch-commands '(rb/project-claude "Claude") t)))
+#+end_src
+
+* Company
+
+#+begin_src emacs-lisp
+            (use-package company
+              :defer 3
+              :bind (("C-<return>" . company-complete)
+                     :map company-active-map
+                     ("C-n" . 'company-select-next)
+                     ("C-p" . 'company-select-previous))
+              :init
+        ;;      (global-company-mode 1)
+              (setq company-minimum-prefix-length 1
+                    company-idle-delay 0.1)
+    ;;          :config
+              ;; broken
+              ;;(add-to-list 'company-backends 'merlin-company-backend)
+              )
+  #+end_src
+
+  #+RESULTS:
+  : company-select-previous
+
+
+
+* Git
+
+** Magit
+   :PROPERTIES:
+   :CUSTOM_ID: magit
+   :END:
+
+   #+begin_src emacs-lisp
+     (use-package
+       magit
+       :ensure t
+       :defer 10
+       :commands magit-get-top-dir
+       :hook ((git-commit-mode . rb/git-commit-mode-hook))
+       :bind (("C-x g" . magit-status)
+              ("C-c C-g l" . magit-log-buffer-file))
+       ;; ("s-m m" . magit-status)
+       ;; ("s-m k" . magit-file-dispatch)
+       ;; ("s-m l" . magit-log-buffer-file))
+       :config (setq magit-push-always-verify
+                     nil
+                     ;; Now that we have magit, disable Emacs vc for git repositories
+                     vc-handled-backends
+                     (delq 'Git vc-handled-backends))
+       (transient-append-suffix
+         'magit-merge
+         "-s"
+         '("-a"
+           "Allow unrelated histories"
+           "--allow-unrelated-histories"))
+       (add-to-list
+        'magit-section-initial-visibility-alist
+        '(stashes . hide)))
+
+     (defun rb/git-commit-mode-hook ()
+       "Hook function to be ran on magits' git-commit-mode"
+       (markdown-mode)
+       (newline 2)
+       (beginning-of-buffer)
+       )
+   #+end_src
+
+   #+RESULTS:
+   : magit-grep
+
+
+** Time machine
+
+   When in =git-timemachine= mode, pressing =n= goes to the next version of the
+   file and =p= to the prior one.
+
+   #+begin_src emacs-lisp
+     (use-package git-timemachine
+       :ensure t
+       :defer t
+       :config
+;;       (define-key 'rb-map (kbd "t") 'git-timemachine)
+       )
+   #+end_src
+
+
+** Forge                                                           :noexport:
+
+   https://magit.vc/manual/forge/
+
+   #+begin_src emacs-lisp
+     ;; (use-package forge
+     ;;   :after magit)
+   #+end_src
+
+   #+RESULTS:
+
+* Markdown
+  #+begin_src emacs-lisp
+  (autoload 'markdown-mode "markdown-mode"
+    "Major mode for editing Markdown files" t)
+  ;;(add-to-list 'auto-mode-alist '("\\.text\\'" . markdown-mode))
+  (add-to-list 'auto-mode-alist '("\\.markdown\\'" . markdown-mode))
+  (add-to-list 'auto-mode-alist '("\\.md\\'" . markdown-mode))
+  (add-hook 'markdown-mode-hook 'pandoc-mode)
+  #+end_src
+
+  #+RESULTS:
+  | pandoc-mode |
+
+* Olivetti
+
+#+begin_src emacs-lisp
+  (use-package olivetti
+    :hook ((LaTeX-mode . olivetti-mode)))
+#+end_src
+
+
+* LaTeX
+  #+begin_src emacs-lisp
+    ;; AucTeX / LaTeX mode
+    (use-package tex
+      :ensure auctex
+      :defer t
+      :mode ("\\.ftex$" . LaTeX-mode) ;; Useful for llo book
+      :hook (TeX-mode . (lambda ()
+                (TeX-fold-mode 1)
+                (TeX-PDF-mode 1)
+                (require 'reftex)
+                (turn-on-reftex)))
+      :init
+      (setq reftex-plug-into-auctex t
+            reftex-label-alist
+            '(("axiom"   ?a "ax:"  "~\\ref{%s}" nil ("axiom"   "ax.") -2)
+              ("theorem" ?h "thr:" "~\\ref{%s}" t   ("theorem" "th.") -3))
+            reftex-extra-bindings t)
+
+      :config
+      (setq TeX-auto-save  t
+            TeX-parse-self t)
+      ;; Use pdf-tools to open PDF files
+      (setq TeX-view-program-selection '((output-pdf "PDF Tools"))
+            TeX-source-correlate-start-server t)
+      ;; Update PDF buffers after successful LaTeX runs
+      (add-hook 'TeX-after-compilation-finished-functions
+               #'TeX-revert-document-buffer)
+      (setq-default TeX-master nil))
+
+    ;; LaTeX hook
+    (add-hook 'LaTeX-mode-hook
+              '(lambda ()
+                 ;; add a line of 80 % -> visually separate parts in documents
+                 (local-set-key [f4]
+                                '(lambda ()
+                   (interactive)
+                   (end-of-line)
+                   (newline)
+                   (insert
+                    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+                   ))
+                 ;; toggle math mode with F5 -> shortcuts for math writing
+                 ;; eg `a -> \alpha
+                 (local-set-key [f5] 'LaTeX-math-mode)
+                 ;; insert curly braces whenever typing _ or ^ in math
+                 (setq TeX-electric-sub-and-superscript t)
+                 (TeX-source-correlate-mode t)
+                 ;; Use variable pitch fonts
+                 (variable-pitch-mode 1)
+                 ;; ask about labels when creating such environments
+                 (LaTeX-add-environments
+                  '("theorem" LaTeX-env-label)
+                  '("lemma"   LaTeX-env-label)
+                  '("proof"   LaTeX-env-label)
+                  '("itemize" LaTeX-env-label)
+                  '("caml_example" LaTeX-env-label))))
+#+end_src
+* COMMENT Dashboard
+
+
+#+BEGIN_SRC emacs-lisp
+  (use-package
+    dashboard
+    :ensure t
+    :after (modus-themes)
+    :config (dashboard-setup-startup-hook)
+    (setq dashboard-items
+          '((recents . 10)
+            (bookmarks . 10)
+            (projects . 10)
+            (agenda . 10)
+            (registers . 5)))
+    (setq dashboard-icon-type 'nerd-icons) ; use `nerd-icons' package
+    (setq dashboard-set-file-icons t)
+    (setq dashboard-set-heading-icons nil)
+    )
+#+END_SRC
+
+
+* Lispy
+
+#+BEGIN_SRC emacs-lisp
+  (use-package lispy
+    :hook (emacs-lisp-mode . lispy-mode))
+#+END_SRC
+
+#+RESULTS:
+| lispy-mode |
+
+* Elisp-autofmt
+
+Autoformatter for elisp code
+
+#+begin_src emacs-lisp
+    (use-package elisp-autofmt :ensure t
+      :hook (emacs-lisp-mode . elisp-autofmt-mode))
+#+end_src
+
+*
+
+* Nix
+#+begin_src emacs-lisp
+  (use-package nix-ts-mode
+    :defer t
+    :mode "\\.nix\\'")
+
+  (use-package nix-buffer)
+
+  (use-package nixos-options
+    :ensure t
+    :after nix-ts-mode)
+   ;; :config
+;;    (add-to-list 'company-backends 'company-nixos-options))
+
+  (use-package nix-sandbox :ensure t)
+#+end_src
+
+#+RESULTS:
+
+** Nixpkgs-fmt
+
+   #+BEGIN_SRC emacs-lisp
+     (use-package nixpkgs-fmt
+       :disabled t
+       :hook (nix-mode . nixpkgs-fmt-on-save-mode)
+       :after (nix-mode))
+   #+END_SRC
+
+   #+RESULTS:
+   | nixpkgs-fmt-on-save-mode |
+
+** Formatting
+
+#+begin_src emacs-lisp
+    (defun nix-format-buffer ()
+      (interactive)
+      (call-process-region
+       (point-min) (point-max)
+       "alejandra" t t nil "-q"))
+
+  (add-hook
+   'nix-ts-qmode-hook
+   (lambda ()
+     (add-hook
+      'before-save-hook
+      #'nix-format-buffer
+      nil
+      t)))
+
+#+end_src
+
+* Python
+
+  #+begin_src emacs-lisp
+(use-package python
+  :defer t
+  :config
+  (custom-set-variables '(python-shell-interpreter "python3")
+                        '(python-shell-buffer-name "Python3")))
+#+end_src
+
+
+
+** LSP
+
+#+begin_src emacs-lisp
+  (use-package lsp-python-ms
+    :disabled t
+    :defer t
+    :hook
+    (python-mode . (lambda ()
+                     (require 'lsp-python-ms)
+                     (lsp)))
+    :init
+    (setq lsp-python-ms-executable
+          (executable-find "python-language-server")))
+#+end_src
+
+** Blacken
+
+   #+BEGIN_SRC emacs-lisp
+     (use-package blacken
+       :hook ((python-mode . blacken-mode)))
+   #+END_SRC
+
+
+
+* OCaml
+  #+begin_src emacs-lisp
+        (defun rb/tuareg-mode-hook ()
+          "docstring"
+          (message "Loading Tuareg user settings")
+          ;;      (setq-local helm-dash-docsets '("OCaml"))
+          (setq tuareg-in-indent 0
+                tuareg-match-patterns-aligned t
+                tuareg-indent-align-with-first-arg nil
+                )
+          (electric-indent-mode 0)
+          (auto-fill-mode 1)
+          (rainbow-delimiters-mode 1)
+          (smartparens-mode)
+          )
+
+        ;; OCaml settings
+        (use-package tuareg
+          :ensure t
+          :hook (tuareg-mode . rb/tuareg-mode-hook)
+          :mode ("\\.ml[ily]?\\'" . tuareg-mode)
+          :bind (("C-c C-v C-d" . helm-dash-at-point)
+                 :map tuareg-interactive-mode-map
+                 (("C-c C-l" . helm-comint-input-ring)
+                  ("<f9>" . projectile-compile-project))))
+        ;; (setq
+        ;;  opam-share
+        ;;  (substring
+        ;;   (shell-command-to-string "opam config var share 2> /dev/null") 0 -1))
+        ;;  (add-to-list 'load-path (concat opam-share "/emacs/site-lisp"))
+
+        ;;  (require 'ocp-indent)
+
+        ;; Enable auto-complete
+#+end_src
+
+#+RESULTS:
+: projectile-compile-project
+
+** Merlin
+
+
+ #+begin_src emacs-lisp
+   (use-package merlin
+     :ensure t
+     :defer t
+     :hook ((tuareg-mode . merlin-mode)
+            (caml-mode . merlin-mode))
+     :config
+     ;; prefer to using 'opam, since it sometimes is set by nix,
+     ;; but almost always through a .envrc
+     (setq merlin-command (lambda () "ocamlmerlin")))
+   #+end_src
+
+   #+RESULTS:
+   | merlin-mode |
+
+** Merlin with eldoc
+
+   A nice way to automatically display type hints through Merlin
+
+   https://github.com/Khady/merlin-eldoc
+
+   #+begin_src emacs-lisp
+     (use-package merlin-eldoc
+       :defer t
+;;       :ensure t
+       :disabled t
+       :after merlin
+;;       :hook (tuareg-mode . merlin-eldoc-setup)
+       :init
+       (setq eldoc-echo-area-use-multiline-p t
+             merlin-eldoc-max-lines 10 ; but no more than 10
+             merlin-eldoc-max-lines-doc 'fit))
+     ;; don't dedicate a line to the documentation
+
+
+   #+end_src
+
+   #+RESULTS:
+
+
+
+** Dune
+
+   #+BEGIN_SRC emacs-lisp
+     (use-package dune
+       :hook ((dune-mode . lispy-mode)))
+   #+END_SRC
+
+   #+RESULTS:
+
+
+* Yasnippet
+  #+begin_src emacs-lisp
+    ;; Yasnippet
+    (use-package yasnippet
+      :defer 10
+      :diminish yas-minor-mode
+      :config
+      (progn
+        (yas-reload-all)
+        (setq yas-snippet-dirs
+              (append yas-snippet-dirs
+                      '("~/.emacs.d/snippets"
+                        "~/.emacs.d/yasnippets" ;; The original one this is a soft link
+                        )))
+        (yas-global-mode 1)))
+  #+end_src
+
+  #+RESULTS:
+  : t
+
+** auto-yasnippet
+
+   Site :: https://github.com/abo-abo/auto-yasnippet
+
+   #+begin_src emacs-lisp
+   (use-package auto-yasnippet
+   :defer 2
+   :ensure t
+   :after yasnippet)
+   #+end_src
+
+   #+RESULTS:
+   : [nil 0 2 0 nil require (auto-yasnippet nil t) idle 0]
+
+
+* Smartparens
+
+  https://ebzzry.io/en/emacs-pairs/
+
+  https://gist.github.com/pvik/8eb5755cc34da0226e3fc23a320a3c95
+
+  #+begin_src emacs-lisp
+  ;; Automatically add matching pairs of elements (brackets, parentheses, ...)
+  ;; Choosing SmartParens over autopair or skeleton-mode
+  (use-package smartparens
+    :ensure t
+    :defer t
+    :hook (prog-mode . smartparens-mode)
+    :diminish smartparens-mode
+    :delight
+    :config
+    (progn
+      (require 'smartparens-config)
+      (smartparens-global-mode 1)))
+#+end_src
+
+#+RESULTS:
+| smartparens-mode | rainbow-delimiters-mode |
+
+
+* Reformatter
+
+  #+BEGIN_SRC emacs-lisp
+    (use-package reformatter
+      :config
+      (reformatter-define poetry-black-format
+        :program "poetry"
+        :args '("run" "black" "-"))
+
+      (reformatter-define ocaml-format
+        :program "ocamlformat"
+        :args (progn
+                (message (format "Running ocamlformat %s" (buffer-file-name)))
+                `("--name" ,(buffer-file-name) "-")))
+      )
+  #+END_SRC
+
+  #+RESULTS:
+  : t
+* All the icons ivy
+
+#+begin_src emacs-lisp
+  ;; (use-package all-the-icons-ivy
+  ;;   :init (add-hook 'after-init-hook 'all-the-icons-ivy-setup))
+#+end_src
+
+
+* Slack
+
+  https://github.com/yuya373/emacs-slack
+
+  - Storing links https://github.com/yuya373/emacs-slack/issues/475
+
+  #+begin_src emacs-lisp :tangle no
+    ;; (el-get-bundle yuya373/helm-slack) ;; optional
+    ;; (use-package helm-slack
+    ;; :ensure nil
+    ;; :after (slack helm)
+    ;; :bind (("C-x 4 s" . helm-slack))) ;; optional
+
+    (use-package slack
+      :commands (slack-start)
+      :init
+      (setq slack-buffer-emojify t) ;; if you want to enable emoji, default nil
+      (setq slack-prefer-current-team t)
+;;      :chords (("uu" . slack-message-embed-mention))
+      :bind (:map slack-edit-message-mode-map
+      ("C-c u" . slack-message-embed-mention)
+      :map slack-mode-map
+      ("C-n" . slack-buffer-goto-next-message)
+      ("C-p" . slack-buffer-goto-prev-message))
+      :config
+      (slack-register-team
+       :name "tweag"
+       :default t
+       :token (auth-source-pick-first-password
+               :user "rbonichon" :host "tweag.slack.team")
+       :subscribed-channels '(paris-office)
+       :full-and-display-names t)
+      (slack-register-team
+       :name "tezos-dev"
+       :token (auth-source-pick-first-password
+               :user "rbonichon" :host "tezos.slack.team")
+       :subscribed-channels '(mockup-client)
+       :full-and-display-names t))
+
+    (use-package alert
+      :commands (alert)
+      :init
+      (setq alert-default-style 'libnotify))
+  #+end_src
+
+* Rmsbolt
+
+#+begin_src emacs-lisp
+  (use-package rmsbolt
+    :ensure t
+    :defer t )
+#+end_src
+
+
+* Multiple cursors
+
+  #+begin_src emacs-lisp
+    (use-package multiple-cursors
+      :bind (("C-S-c C-S-c" . mc/edit-lines))
+      :config
+      (global-set-key (kbd "C->") 'mc/mark-next-like-this)
+      (global-set-key (kbd "C-<") 'mc/mark-previous-like-this)
+      (global-set-key (kbd "C-c C-<") 'mc/mark-all-like-this))
+  #+end_src
+
+
+* LSP
+
+#+begin_src emacs-lisp
+  (use-package lsp-mode
+    :disabled t
+    :commands lsp lsp-deferred
+    :hook (;;(lsp-after-open . lsp-enable-imenu)
+           (lsp-mode . lsp-enable-which-key-integration))
+    :config
+    ;;    (require 'lsp-clients)
+    (setq lsp-prefer-flymake nil
+          lsp-auto-guess-root t ; Detect project root
+          lsp-keep-workspace-alive nil ; Auto-kill LSP server
+          lsp-prefer-capf t
+          lsp-enable-indentation nil
+          lsp-enable-on-type-formatting nil))
+
+  (use-package lsp-ui
+      :disabled t
+      :after lsp
+      :config
+      (define-key lsp-ui-mode-map
+        [remap xref-find-definitions] #'lsp-ui-peek-find-definitions)
+      (define-key lsp-ui-mode-map
+        [remap xref-find-references] #'lsp-ui-peek-find-references)
+      (setq lsp-ui-sideline-enable t
+            lsp-ui-sideline-update-mode 'line
+            lsp-ui-sideline-show-code-actions t
+            lsp-ui-sideline-show-hover t
+            lsp-ui-doc-enable t
+            lsp-ui-flycheck-enable t
+            lsp-ui-imenu-enable t
+            lsp-ui-sideline-ignore-duplicate t))
+#+end_src
+
+
+* Ace window
+
+  Quicker movements than with =windmove= or usual =Emacs= keybindings.
+  With only 2 windows, it behaves exactly the same as the default ="C-x o"=
+  bindings. Otherwise, a letter appears on the upper left-hand side of each
+  window: just press it to focus on the underlying buffer/window.
+
+  #+begin_src emacs-lisp
+    (use-package ace-window
+      :defer t
+      :ensure t
+      :init
+        ;; (setq aw-keys '(?a ?s ?d ?f ?j ?k ?l ?o))
+        (global-set-key (kbd "C-x o") 'ace-window)
+      :diminish ace-window-mode)
+  #+end_src
+
+* Pdf-tools
+
+
+  #+begin_src emacs-lisp
+      (use-package pdf-tools
+        :mode ("\\.pdf$" . pdf-view-mode)
+        :defer t
+        :init
+        ;; ;; open pdfs scaled to fit page
+        (setq-default pdf-view-display-size 'fit-page)
+        ;; ;; automatically annotate highlights
+        (setq pdf-annot-activate-created-annotations t
+              TeX-view-program-selection '((output-pdf "pdf-tools"))
+              TeX-view-program-list '(("pdf-tools" "TeX-pdf-tools-sync-view"))
+              pdf-misc-print-programm "/usr/sbin/lp"
+              pdf-misc-print-programm-args '("-d bresil" "-o fitplot" "-o media=a4" "-o sides=two-sided-long-edge")))
+        (require 'pdf-occur)
+        (pdf-tools-install t)
+  #+end_src
+
+** Documentation
+
+ - https://github.com/politza/pdf-tools#some-keybindings
+ - http://pragmaticemacs.com/emacs/more-pdf-tools-tweaks
+
+
+* Embark
+
+#+begin_src emacs-lisp
+  (use-package marginalia
+    :ensure t
+    :config
+    (marginalia-mode))
+
+  (use-package embark
+    :ensure t
+
+    :bind
+    (("C-." . embark-act)         ;; pick some comfortable binding
+     ("C-;" . embark-dwim)        ;; good alternative: M-.
+     ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+
+    :init
+
+    ;; Optionally replace the key help with a completing-read interface
+    (setq prefix-help-command #'embark-prefix-help-command)
+
+    :config
+
+    ;; Hide the mode line of the Embark live/completions buffers
+    (add-to-list 'display-buffer-alist
+                 '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                   nil
+                   (window-parameters (mode-line-format . none))))
+
+    ;; Open URLs in Firefox from the embark-act menu (bound to "f")
+    (keymap-set embark-url-map "f" #'browse-url-firefox)
+
+    ;; --- Embark support for elfeed-search entries ---------------------
+    ;; `embark-act' on the entry at point exposes: RET to read it inside
+    ;; Emacs (the default action), f/e to open the post URL in Firefox or
+    ;; EWW, and b to be prompted for a browser.
+    (defun rb/elfeed-search-show-entry-at-point (&optional _url)
+      "Open the elfeed entry at point in an elfeed buffer.
+_URL is ignored: the entry is taken from point so this can be used
+as an `embark' action whose target is the entry's link."
+      (interactive)
+      (call-interactively #'elfeed-search-show-entry))
+
+    (defun rb/elfeed-search-embark-target ()
+      "Embark target finder for the elfeed entry at point.
+Returns a cons of the `elfeed-search-entry' type and the entry's link."
+      (when (derived-mode-p 'elfeed-search-mode)
+        (when-let* ((entry (elfeed-search-selected :ignore-region))
+                    (url (elfeed-entry-link entry)))
+          (cons 'elfeed-search-entry url))))
+
+    (defvar-keymap rb/elfeed-search-embark-map
+      :doc "Embark actions for elfeed-search entries."
+      :parent embark-url-map
+      "RET" #'rb/elfeed-search-show-entry-at-point
+      "f"   #'browse-url-firefox
+      "e"   #'eww
+      "b"   #'rb/elfeed-open-in-browser)
+
+    (add-to-list 'embark-target-finders #'rb/elfeed-search-embark-target)
+    (add-to-list 'embark-keymap-alist
+                 '(elfeed-search-entry . rb/elfeed-search-embark-map)))
+
+  ;; ;; Consult users will also want the embark-consult package.
+  ;; (use-package embark-consult
+  ;;   :ensure t
+  ;;   :after (embark consult)
+  ;;   :demand t ; only necessary if you have the hook below
+  ;;   ;; if you want to have consult previews as you move around an
+  ;;   ;; auto-updating embark collect buffer
+  ;;   :hook
+  ;;   (embark-collect-mode . consult-preview-at-point-mode))
+  #+end_src
+
+
+
+
+* Plz
+
+Retrieve data trough ~curl~
+
+#+begin_src emacs-lisp
+(use-package plz :ensure t)
+#+end_src
+
+
+* Simple-httpd
+
+
+#+begin_src emacs-lisp
+  (use-package simple-httpd :ensure t :defer t)
+#+end_src
+
+
+* Consult
+
+
+#+begin_src emacs-lisp
+  ;; Example configuration for Consult
+  (use-package consult
+    :ensure t
+    ;; Replace bindings. Lazily loaded due by `use-package'.
+    :bind (;; C-c bindings (mode-specific-map)
+           ("C-c h" . consult-history)
+           ("C-c m" . consult-mode-command)
+           ("C-c k" . consult-kmacro)
+           ;; C-x bindings (ctl-x-map)
+           ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complex-command
+           ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+           ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+           ("C-x 5 b" . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
+           ("C-x r b" . consult-bookmark)            ;; orig. bookmark-jump
+           ("C-x p b" . consult-project-buffer)      ;; orig. project-switch-to-buffer
+           ;; Custom M-# bindings for fast register access
+           ("M-#" . consult-register-load)
+           ("M-'" . consult-register-store)          ;; orig. abbrev-prefix-mark (unrelated)
+           ("C-M-#" . consult-register)
+           ;; Other custom bindings
+           ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+           ("<help> a" . consult-apropos)            ;; orig. apropos-command
+           ;; M-g bindings (goto-map)
+           ("M-g e" . consult-compile-error)
+           ("M-g f" . consult-flymake)               ;; Alternative: consult-flycheck
+           ("M-g g" . consult-goto-line)             ;; orig. goto-line
+           ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
+           ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
+           ("M-g m" . consult-mark)
+           ("M-g k" . consult-global-mark)
+           ("M-g i" . consult-imenu)
+           ("M-g I" . consult-imenu-multi)
+           ;; M-s bindings (search-map)
+           ("M-s d" . consult-find)
+           ("M-s D" . consult-locate)
+           ("M-s g" . consult-grep)
+           ("M-s G" . consult-git-grep)
+           ("M-s r" . consult-ripgrep)
+           ("M-s l" . consult-line)
+           ("M-s L" . consult-line-multi)
+           ("M-s m" . consult-multi-occur)
+           ("M-s k" . consult-keep-lines)
+           ("M-s u" . consult-focus-lines)
+           ;; Isearch integration
+           ("M-s e" . consult-isearch-history)
+           :map isearch-mode-map
+           ("M-e" . consult-isearch-history)         ;; orig. isearch-edit-string
+           ("M-s e" . consult-isearch-history)       ;; orig. isearch-edit-string
+           ("M-s l" . consult-line)                  ;; needed by consult-line to detect isearch
+           ("M-s L" . consult-line-multi)            ;; needed by consult-line to detect isearch
+           ;; Minibuffer history
+           :map minibuffer-local-map
+           ("M-s" . consult-history)                 ;; orig. next-matching-history-element
+           ("M-r" . consult-history))                ;; orig. previous-matching-history-element
+
+    ;; Enable automatic preview at point in the *Completions* buffer. This is
+    ;; relevant when you use the default completion UI.
+    :hook (completion-list-mode . consult-preview-at-point-mode)
+
+    ;; The :init configuration is always executed (Not lazy)
+    :init
+
+    ;; Optionally configure the register formatting. This improves the register
+    ;; preview for `consult-register', `consult-register-load',
+    ;; `consult-register-store' and the Emacs built-ins.
+    (setq register-preview-delay 0.5
+          register-preview-function #'consult-register-format)
+
+    ;; Optionally tweak the register preview window.
+    ;; This adds thin lines, sorting and hides the mode line of the window.
+    (advice-add #'register-preview :override #'consult-register-window)
+
+    ;; Use Consult to select xref locations with preview
+    (setq xref-show-xrefs-function #'consult-xref
+          xref-show-definitions-function #'consult-xref)
+
+    ;; Configure other variables and modes in the :config section,
+    ;; after lazily loading the package.
+    :config
+
+    ;; Optionally configure preview. The default value
+    ;; is 'any, such that any key triggers the preview.
+    ;; (setq consult-preview-key 'any)
+    ;; (setq consult-preview-key (kbd "M-."))
+    ;; (setq consult-preview-key (list (kbd "<S-down>") (kbd "<S-up>")))
+    ;; For some commands and buffer sources it is useful to configure the
+    ;; :preview-key on a per-command basis using the `consult-customize' macro.
+    (consult-customize
+     consult-theme
+     :preview-key '(:debounce 0.2 any)
+     consult-ripgrep consult-git-grep consult-grep
+     consult-bookmark consult-recent-file consult-xref
+     consult--source-bookmark consult--source-recent-file
+     consult--source-project-recent-file
+     :preview-key "M-.")
+
+
+    ;; Optionally configure the narrowing key.
+    ;; Both < and C-+ work reasonably well.
+    (setq consult-narrow-key "<") ;; (kbd "C-+")
+
+    ;; Optionally make narrowing help available in the minibuffer.
+    ;; You may want to use `embark-prefix-help-command' or which-key instead.
+    ;; (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help)
+
+    ;; By default `consult-project-function' uses `project-root' from project.el.
+    ;; Optionally configure a different project root function.
+    ;; There are multiple reasonable alternatives to chose from.
+    ;;;; 1. project.el (the default)
+    ;; (setq consult-project-function #'consult--default-project--function)
+    ;;;; 2. projectile.el (projectile-project-root)
+    ;; (autoload 'projectile-project-root "projectile")
+    ;; (setq consult-project-function (lambda (_) (projectile-project-root)))
+    ;;;; 3. vc.el (vc-root-dir)
+    ;; (setq consult-project-function (lambda (_) (vc-root-dir)))
+    ;;;; 4. locate-dominating-file
+    ;; (setq consult-project-function (lambda (_) (locate-dominating-file "." ".git")))
+  )
+
+#+end_src
+
+** Consult-gh
+
+
+[[https://github.com/armindarvish/consult-gh][consult-gh]] is not yet available from elpa
+
+#+begin_src emacs-lisp
+  (quelpa  '(consult-gh
+                 :fetcher github
+                 :repo  "armindarvish/consult-\"gh" "" ))
+  (use-package consult-gh
+    :ensure t
+    :after consult
+    :quelpa (consult-gh
+             :fetcher github
+             :repo  "armindarvish/consult-gh" ))
+
+#+end_src
+
+* Vertico
+
+#+begin_src emacs-lisp
+    ;; Enable vertico
+    (use-package vertico
+      :init
+      (vertico-mode)
+
+      ;; Different scroll margin
+      ;; (setq vertico-scroll-margin 0)
+
+      ;; Show more candidates
+      ;; (setq vertico-count 20)
+
+      ;; Grow and shrink the Vertico minibuffer
+      ;; (setq vertico-resize t)
+
+      ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
+      ;; (setq vertico-cycle t)
+      )
+
+    ;; Persist history over Emacs restarts. Vertico sorts by history position.
+    (use-package savehist
+      :init
+      (savehist-mode))
+
+    ;; A few more useful configurations...
+    (use-package emacs
+      :init
+      ;; Add prompt indicator to `completing-read-multiple'.
+      ;; We display [CRM<separator>], e.g., [CRM,] if the separator is a comma.
+      (defun crm-indicator (args)
+        (cons (format "[CRM%s] %s"
+                    (replace-regexp-in-string
+                     "\\`\\[.*?]\\*\\|\\[.*?]\\*\\'" ""
+                     crm-separator)
+                    (car args))
+            (cdr args)))
+      (advice-add #'completing-read-multiple :filter-args #'crm-indicator)
+
+      ;; Do not allow the cursor in the minibuffer prompt
+      (setq minibuffer-prompt-properties
+          '(read-only t cursor-intangible t face minibuffer-prompt))
+      (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+
+      ;; Emacs 28: Hide commands in M-x which do not work in the current mode.
+      ;; Vertico commands are hidden in normal buffers.
+      ;; (setq read-extended-command-predicate
+      ;;       #'command-completion-default-include-p)
+
+      ;; Enable recursive minibuffers
+      (setq enable-recursive-minibuffers t)
+      (setopt text-mode-ispell-word-completion nil)
+      )
+
+    ;; Optionally use the `orderless' completion style.
+  (use-package orderless
+    :init
+    ;; Configure a custom style dispatcher (see the Consult wiki)
+    ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+    ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+    (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
+#+end_src
+
+
+
+* Corfu
+
+#+begin_src emacs-lisp
+  ;;;; Code Completion
+  (use-package corfu
+    ;; Optional customizations
+    :custom
+    (corfu-cycle t)                 ; Allows cycling through candidates
+    (corfu-auto t)                  ; Enable auto completion
+    (corfu-auto-prefix 3)
+    (corfu-auto-delay 0.2)
+    (corfu-popupinfo-delay '(2.0 . 1.0))
+    (corfu-preview-current 'insert) ; Do not preview current candidate
+    (corfu-preselect 'first)
+    (corfu-on-exact-match nil)      ; Don't auto expand tempel snippets
+
+    ;; Optionally use TAB for cycling, default is `corfu-complete'.
+    :bind (:map corfu-map
+                ("M-SPC"      . corfu-insert-separator)
+                ("TAB"        . corfu-next)
+                ([tab]        . corfu-next)
+                ("S-TAB"      . corfu-previous)
+                ([backtab]    . corfu-previous)
+                ("S-<return>" . corfu-insert)
+                ("RET"        . nil))
+
+    :init
+    (global-corfu-mode)
+    (corfu-history-mode)
+    (corfu-popupinfo-mode) ; Popup completion info
+    :config
+    (add-hook 'eshell-mode-hook
+              (lambda ()
+                (setq-local corfu-quit-at-boundary t
+                            corfu-quit-no-match t
+                            corfu-auto nil)
+                (corfu-mode))))
+
+  (use-package cape
+    :defer 10
+    :bind ("C-c f" . cape-file)
+    :init
+    ;; Add `completion-at-point-functions', used by `completion-at-point'.
+    (defalias 'dabbrev-after-2 (cape-capf-prefix-length #'cape-dabbrev 2))
+    (add-to-list 'completion-at-point-functions 'dabbrev-after-2 t)
+    (cl-pushnew #'cape-file completion-at-point-functions)
+    :config
+    ;; Silence then pcomplete capf, no errors or messages!
+    (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-silent)
+
+    ;; Ensure that pcomplete does not write to the buffer
+    ;; and behaves as a pure `completion-at-point-function'.
+    (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-purify))
+#+end_src
+
+* Rust
+
+#+begin_src emacs-lisp
+  (use-package rustic
+    :defer 1
+    :config
+    (setq rustic-lsp-client 'eglot
+          rustic-format-on-save t)
+    )
+#+end_src
+
+* Gist
+
+#+begin_src emacs-lisp
+  (use-package gist :defer 1 :ensure t)
+;  (use-package code-review :defer 2 :ensure t)
+#+end_src
+
+* Dictionary
+
+From https://irreal.org/blog/?p=10824
+
+#+begin_src emacs-lisp
+(setq dictionary-server "dict.org")
+#+end_src
+
+Then use ~M-x dictionary-search~ to search for a word
+
+#+begin_src emacs-lisp :tangle no
+(dictionary-search "beautiful")
+#+end_src
+
+#+RESULTS:
+| dictionary-new-search-internal | beautiful | * | dictionary-display-search-result |
+
+
+* Go
+
+#+begin_src emacs-lisp
+  (use-package
+    go-mode
+    :defer 15
+    :ensure t)
+#+end_src
+
+
+
+* gptel
+
+LLM client. Configured with Anthropic (Claude) as the default backend
+and Ollama as a local fallback. The Anthropic key is read from
+auth-source (host =api.anthropic.com=) via =rb/anthropic-api-key= —
+never inline it here.
+
+#+begin_src emacs-lisp
+  (defun rb/anthropic-api-key ()
+    "Return the Anthropic API key from auth-source (host api.anthropic.com)."
+    (auth-source-pick-first-password :host "api.anthropic.com"))
+
+  (use-package gptel
+    :ensure t
+    :bind (("C-c g <return>" . gptel-send)
+           ("C-c g g"      . gptel)
+           ("C-c g m"      . gptel-menu)
+           ("C-c g r"      . gptel-rewrite))
+    :custom
+    (gptel-default-mode 'org-mode)
+    :config
+    ;; Anthropic / Claude — default backend.
+    (setq gptel-model   'claude-sonnet-4-6
+          gptel-backend (gptel-make-anthropic "Claude"
+                          :stream t
+                          :key #'rb/anthropic-api-key
+                          :models '(claude-opus-4-7
+                                    claude-sonnet-4-6
+                                    claude-haiku-4-5)))
+
+    ;; Local Ollama — selectable via `gptel-menu' / `C-c g m'.
+    (gptel-make-ollama "Ollama"
+      :host "localhost:11434"
+      :stream t
+      :models '(phi3 mistral:latest)))
+#+end_src
+
+* ChatGPT
+
+See https://github.com/xenodium/chatgpt-shell
+
+#+begin_src emacs-lisp :tangle no
+  (defun load-library-if-exists (libpath)
+    "docstring"
+    (when (or (file-exists-p
+               (concat libpath ".el"))
+              (file-exists-p
+               (concat libpath ".elc")))
+      (load-library libpath)))
+
+  (load-library-if-exists "~/.emacs.d/chatgpt-shell/shell-maker")
+
+  (with-eval-after-load
+      "~/.emacs.d/chatgpt-shell/chatgpt-shell"
+    (setq chatgpt-shell-openai-key
+          (lambda ()
+            (nth 0 (process-lines
+                    "pass"
+                    "show"
+                    "openai-key")))))
+
+  (with-eval-after-load
+      "~/.emacs.d/chatgpt-shell/ob-chatgpt-shell"
+    (require 'ob-chatgpt-shell)
+    (ob-chatgpt-shell-setup))
+#+end_src
+
+
+* Ag
+
+ Disabled since ~rg~ covers the same functionality.
+
+#+begin_src emacs-lisp
+  (use-package ag
+    :commands (ag ag-regexp)
+    :disabled t
+    )
+#+end_src
+
+* Helpful
+
+
+#+begin_src emacs-lisp
+  (use-package helpful
+    :ensure t
+    :config
+    (global-set-key (kbd "C-h f") #'helpful-callable)
+    (global-set-key (kbd "C-h v") #'helpful-variable)
+    (global-set-key (kbd "C-h k") #'helpful-key)
+    (global-set-key (kbd "C-h x") #'helpful-command)
+    (global-set-key (kbd "C-c C-d") #'helpful-at-point)
+    )
+#+end_src
+
+* Ledger
+
+#+begin_src emacs-lisp
+  (use-package ledger-mode :ensure t :defer 10)
+#+end_src
+
+** Resources
+ https://www.maketecheasier.com/manage-finances-with-ledger-mode-emacs/
+
+
+** hledger
+
+#+begin_src emacs-lisp 
+  (use-package hledger-mode :ensure t :defer 5)
+
+  (use-package hledger-documents
+    :load-path "~/.emacs.d/mylibs/"
+    :after hledger-mode
+    :hook (hledger-mode . hledger-documents-mode)
+    :custom
+    (hledger-documents-base-directory
+     (expand-file-name "~/loopless/accounting")))
+
+#+end_src
+
+* Eglot
+
+#+begin_src emacs-lisp
+  (use-package eglot :ensure t
+    :hook ((rustic-mode . eglot-ensure)
+           (nix-ts-mode . eglot-ensure))
+    :custom
+    (eglot-autoshutdown t))
+#+end_src
+
+* Gnuplot
+
+#+begin_src emacs-lisp
+  (use-package gnuplot :ensure t)
+#+end_src
+
+* Aidermacs
+
+#+begin_src emacs-lisp
+  (use-package aidermacs
+    :bind (("C-c a" . aidermacs-transient-menu))
+    :config
+    ;; Export the key for the aider subprocess; sourced from auth-source.
+    (setenv "ANTHROPIC_API_KEY" (rb/anthropic-api-key))
+    :custom
+    ; See the Configuration section below
+    (aidermacs-use-architect-mode t)
+    (aidermacs-use-architect-mode t)
+  ; Avoid sending unsupport no-auto-accept-architect flag
+    (aidermacs-auto-accept-architect t)
+    (aidermacs-default-model "claude-3-7-sonnet-latest"))
+#+end_src
+
+* Claude-mode
+
+#+begin_src emacs-lisp
+  ;;  (package-vc-install '(claude-code :url "https://github.com/stevemolitor/claude-code.el"))
+  (defun ensure-package-installed (package url)
+    "Ensure PACKAGE is installed via package-vc-install from URL if missing."
+    (unless (package-installed-p package)
+      (package-vc-install `(,package :url ,url))))
+
+  ;; Example usage: Ensure `some-package` is installed from a given Git repository
+  (ensure-package-installed 'claude-code "https://github.com/stevemolitor/claude-code.el")
+
+  (require 'claude-code)
+  (setq claude-code-prefix-key "C-c c")
+  (define-key global-map (kbd "C-c c") claude-code-command-map)
+  (claude-code-mode)
+
+  ;; C-u M-x claude-code launches a new independent instance (vterm-style);
+  ;; C-c c l lists running instances (switch / rename / kill).
+  (use-package claude-code-multi
+    :load-path "~/.emacs.d/mylibs/"
+    :after claude-code)
+#+end_src
+
+* Consult-omni
+
+Example configurations at https://github.com/armindarvish/consult-omni?tab=readme-ov-file#drop-in-example-configs
+
+#+begin_src emacs-lisp 
+  ;;   (use-package consult-omni
+  ;;     :quelpa (consult-omni
+  ;;              :fetcher github
+  ;;              :repo "armindarvish/consult-omni")
+  ;;     :after consult
+  ;;     :custom
+  ;;      ;; General settings that apply to all sources
+  ;;     (consult-omni-show-preview t) ;;; show previews
+  ;;     (consult-omni-preview-key "C-o") ;;; set the preview key to C-o
+  ;;     :config
+  ;;     ;; Load Sources Core code
+  ;; ;;    (require 'consult-omni-sources)
+  ;;     ;; Load Embark Actions
+  ;; ;;    (require 'consult-omni-embark)
+
+  ;;     ;; Only load wikipedia source
+  ;;     (setq consult-omni-sources-modules-to-load (list 'consult-omni-wikipedia))
+  ;;     (consult-omni-sources-load-modules)
+
+  ;;     ;;; Set your shorthand favorite interactive command
+  ;;     (setq consult-omni-default-interactive-command #'consult-omni-wikipedia))
+#+end_src
+
+* Prodigy
+
+- https://github.com/rejeep/prodigy.el
+- https://www.reddit.com/r/emacs/comments/oksdhh/package_praise_prodigy_and_fancydabbrev/
+- https://jd.codes/posts/emacs-prodigy/
+
+
+
+#+begin_src emacs-lisp
+  (use-package prodigy
+    :ensure t
+    )
+#+end_src
+
+

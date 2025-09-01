@@ -1,0 +1,1493 @@
+* Resources
+
+https://hugocisneros.com/org-config/
+
+* Org itself
+
+#+BEGIN_SRC emacs-lisp
+  ;;Org mode
+  ;;
+
+  ;; (defun org-mode-reftex-setup ()
+  ;;   (load-library "reftex")
+  ;;   (and (buffer-file-name)
+  ;;        (file-exists-p (buffer-file-name))
+  ;;        (reftex-parse-all))
+  ;;   (define-key org-mode-map (kbd "C-c )")
+  ;;     'reftex-citation))
+
+  (defun rb/in-org-dir (file)
+    (concat (file-name-as-directory org-directory) file))
+
+  (use-package org
+    :bind (("C-c l" . org-store-link)
+           ("C-c r" . org-capture)
+           ("<f9>"  . org-capture)
+           ("C-c a" . org-agenda)
+           ("C-c b" . org-iswitchb))
+    :hook (org-mode . visual-line-mode)
+    :pin gnu
+    :mode (("\\.org$" . org-mode))
+    :init
+    ;;      (add-hook 'org-mode-hook 'org-mode-reftex-setup )
+    ;; unfold everything when resolving conflicts through ediff
+    (add-hook 'ediff-prepare-buffer-hook #'outline-show-all)
+    (add-hook 'org-after-todo-statistics-hook 'org-summary-todo)
+    (defvar rb/org-main-file (rb/in-org-dir "tasks.org"))
+    (setq
+     org-image-actual-width nil
+     org-use-speed-commands t
+     org-directory "~/documents/org"
+     org-default-notes-file (rb/in-org-dir "notes.org")
+     org-gcal-file (rb/in-org-dir "gcal.org")
+     org-ical-file (rb/in-org-dir "cal.org")
+     org-highest-priority ?A
+     org-lowest-priority ?I
+     org-default-priority ?I
+     org-priority-faces
+     '((?A . (:background "#c0392b" :foreground "#2c3e50" :weight bold))
+       (?B . (:background "#e74c3c" :foreground "#2c3e50" :weight bold))
+       (?C . (:background "#d35400" :foreground "#2c3e50" :weight bold))
+       (?D . (:background "#e67e22" :foreground "#2c3e50" :weight bold))
+       (?E . (:background "#d98c10" :foreground "#2c3e50" :weight bold))
+       (?F . (:background "#f1c40f" :foreground "#2c3e50" :weight bold))
+       (?G . (:background "#16a085" :foreground "#2c3e50" :weight bold))
+       (?H . (:background "#2ecc71" :foreground "#2c3e50" :weight bold))
+       (?I . (:background "#dfe4ea" :foreground "#2c3e50" :weight bold)))
+     org-global-properties
+     '(("Effort_ALL" .
+        "0:15 0:30 0:45 1:00 2:00 3:00 4:00 5:00 6:00 0:00"))
+     org-columns-default-format "%50ITEM(Task) %2PRIORITY %10Effort(Effort){:} %10CLOCKSUM"
+     org-deadline-warning-days 90
+     org-deadline-past-days 1
+     org-agenda-show-all-dates t
+     org-agenda-skip-deadline-if-done t
+     org-agenda-skip-scheduled-if-done t
+     org-agenda-span 'day
+     org-agenda-include-diary t
+     org-cycle-separator-lines 0
+     org-use-fast-todo-selection t
+     org-hide-emphasis-markers nil ;; Show markup
+     org-agenda-files '("~/documents/org/tasks.org"
+                        "~/documents/org/zknotes/20250116095934-anniversaires_fetes.org"
+                        )
+     ;; Do not dim blocked tasks
+     org-agenda-dim-blocked-tasks 'invisible
+     ;; Compact the block agenda view
+     org-agenda-compact-blocks nil
+     ;; org-refile-* elements below D are
+     ;; from https://blog.aaronbieber.com/2017/03/19/organizing-notes-with-refile.html
+     org-refile-targets '((org-agenda-files :maxlevel . 4))
+     ;; also add toplevel of files to refile targets
+     org-refile-use-outline-path 'file
+     ;; generate all completion at once, not step-by-step
+     org-outline-path-complete-in-steps nil
+     ;; allow creation of new files or parents
+     org-refile-allow-creating-parent-nodes 'confirm
+     ;; Highlight Latex code
+     org-highlight-latex-and-related '(latex))
+    :config
+    ;; (rb/maybe-load-feature 'ol-notmuch)
+    ;; Turn on org-mode minor modes for mails
+    (add-hook 'message-mode-hook 'turn-on-orgtbl)
+    ;;    (add-hook 'message-mode-hook 'turn-on-orgstruct++)
+    (setq-default prettify-symbols-alist
+                  '(("#+BEGIN_SRC" . "†")
+                    ("#+END_SRC" . "†")
+                    ("#+begin_src" . "†")
+                    ("#+end_src" . "†")
+                    ("#+begin_quote" . "")
+                    ("#+end_quote" . "")
+                    (">=" . "≥")
+                    ("=>" . "⇨")))
+    (setq prettify-symbols-unprettify-at-point 'right-edge)
+    (add-hook 'org-mode-hook 'prettify-symbols-mode))
+#+end_src
+
+
+** Org modules
+
+   #+begin_src emacs-lisp
+     ;; (setq org-modules
+     ;;       '(
+     ;;         org-gnus
+     ;;         org-info
+     ;;         org-habit
+     ;;         org-irc
+     ;;         org-mouse
+     ;;         org-protocol
+     ;;         org-annotate-file
+     ;;         org-eval
+     ;;         org-expiry
+     ;;         org-interactive-query
+     ;;         org-collector
+     ;;         org-panel
+     ;;         org-screen
+     ;;         org-toc))
+     ;; (eval-after-load 'org '(org-load-modules-maybe t))
+
+     ;; Prepare stuff for org-export-backends
+     (setq
+      org-export-backends '(org latex icalendar html ascii)
+      org-export-initial-scope 'subtree)
+      ;; org-export-in-background t)
+   #+end_src
+
+* Stripe buffer
+
+#+begin_src emacs-lisp
+      (use-package stripe-buffer
+	:ensure t
+	:defer 2
+	:config
+       ;; (add-hook 'org-mode-hook 'turn-on-stripe-table-mode)
+	)
+
+#+end_src
+* Org-journal
+
+#+begin_src emacs-lisp
+  (use-package org-journal
+   :defer t
+   :after org
+   :config
+   (setq org-journal-dir "~/documents/org/journal")
+   :bind (("C-c j" . org-journal-new-entry))
+  )
+
+#+end_src
+
+* ICal
+#+begin_src emacs-lisp
+  ;; (use-package ical-pull
+  ;; :defer t
+  ;; :after org
+  ;; :ensure t
+  ;; :config
+  ;; (setq ical-pull-list
+  ;;       '("http://is005961.intra.cea.fr:8091/seminars/ical/feed.ics")
+  ;;       ical-pull-file org-ical-file
+  ;;       ))
+#+end_src
+
+#+begin_src emacs-lisp
+  (add-to-list 'auto-mode-alist '("\\.org$" . org-mode))
+    ;;  (require 'org-contacts)
+  (use-package org-ref
+    :ensure org-ref
+    :after org
+    :defer t
+    :init
+    ;; see org-ref for use of these variables
+    (setq org-ref-bibliography-notes "~/documents/org/bibliography/notes.org"
+	  org-ref-default-bibliography '("~/documents/org/bibliography/references.bib")
+	  org-ref-get-pdf-filename-function 'org-ref-get-pdf-filename-helm-bibtex
+	  org-ref-notes-directory "~/documents/org/zknotes/references"
+	  org-ref-pdf-directory "~/documents/biblio/"))
+#+end_src
+
+
+
+* GCal sync
+
+Thanks to M. Zamansky's video and blog post
+
+#+begin_src emacs-lisp
+  ;; (use-package org-gcal
+  ;;   :disabled t
+  ;;   :after org
+  ;;   :config
+  ;;   (setq org-gcal-client-id (auth-source-pick-first-password :host "gcal.client-id")
+  ;;         org-gcal-client-secret (auth-source-pick-first-password :host "gcal.client-secret")
+  ;;         org-gcal-file-alist '(
+  ;;                               ("richard.bonichon@gmail.com" .  "~/documents/org/gcal.org")
+  ;;                               )
+  ;;   ))
+#+end_src
+
+* Prettier bullets
+
+#+begin_src emacs-lisp
+  (use-package org-bullets
+    :after org
+    :custom
+    (org-bullets-bullet-list '("◉" "☯" "○" "☯" "✸" "☯" "✿" "☯" "✜" "☯" "◆" "☯" "▶"))
+    (org-ellipsis " ")
+    :hook (org-mode . org-bullets-mode))
+      #+end_src
+
+** Resources
+
+ - http://www.modernemacs.com/post/outline-bullets/
+ - https://thraxys.wordpress.com/2016/01/14/pimp-up-your-org-agenda/
+ - https://zhangda.wordpress.com/2016/02/15/configurations-for-beautifying-emacs-org-mode/
+
+* Org modern
+
+  After trying, I don't find this looks so nice in the end ... Let's keep it
+  here for reference.
+
+#+begin_src emacs-lisp
+  (use-package org-modern
+    :disabled t
+    :after (org)
+    :config (global-org-modern-mode))
+#+end_src
+* Pomodoro
+      #+begin_src emacs-lisp
+	(use-package org-pomodoro
+	  :disabled t
+	  :bind (("C-c C-x C-o" . org-pomodoro))
+	  :config
+	  (add-hook
+	   'org-pomodoro-started-hook
+	   (lambda ()
+	     (shell-command "notify-send \"org-pomodoro\" \"Pomodoro started!\"")))
+	  (add-hook 'org-pomodoro-finished-hook
+		    (lambda ()
+		      (shell-command "notify-send \"org-pomodoro\" \"Take a break.\"")))
+	  )
+#+end_src
+
+* Export options
+
+#+begin_src emacs-lisp
+  (use-package ob-diagrams
+    :defer t
+    :after org)
+
+  (use-package ox-reveal
+    :defer t
+    :after org)
+
+  (use-package ox-ioslide
+    :defer t
+    :after org)
+
+  (use-package org-trello
+  :after org
+  :disabled t
+  :init
+  (setq org-trello-current-prefix-keybinding "C-c o"))
+
+  (use-package org-tree-slide
+    :defer t
+    :after org
+    :ensure t
+    :bind (("<f8>"   . org-tree-slide-mode)
+	   ("S-<f8>" . org-tree-slide-skip-done-toggle)))
+#+end_src
+
+#+begin_src emacs-lisp
+  (require 'ox-latex)
+  (setq pdflatex_cmd  "pdflatex -shell-escape -interaction nonstopmode -output-directory %o %f")
+
+  (setq org-export-latex-listings 'minted
+	org-export-latex-custom-lang-environments
+	'((emacs-lisp "common-lispcode"))
+	org-export-latex-minted-options
+	'(("frame" "lines")
+	  ("fontsize" "\\scriptsize")
+	  ("linenos" ""))
+	org-latex-to-pdf-process '(pdflatex_cmd pdflatex_cmd pdflatex_cmd))
+
+  (add-to-list
+   'org-latex-classes
+   '("koma-article"
+     "\\documentclass{scrartcl}"
+     ("\\section{%s}" . "\\section*{%s}")
+     ("\\subsection{%s}" . "\\subsection*{%s}")
+     ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+     ("\\paragraph{%s}" . "\\paragraph*{%s}")
+     ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+
+#+end_src
+
+From https://github.com/munen/emacs.d/
+#+begin_src emacs-lisp
+  (add-to-list
+   'org-latex-classes
+   '("tuftehandout"
+     "\\documentclass{tufte-handout}
+       \\usepackage{color}
+       \\usepackage{amssymb}
+       \\usepackage{amsmath}
+       \\usepackage{gensymb}
+       \\usepackage{nicefrac}
+       \\usepackage{units}"
+     ("\\section{%s}" . "\\section*{%s}")
+     ("\\subsection{%s}" . "\\subsection*{%s}")
+     ("\\paragraph{%s}" . "\\paragraph*{%s}")
+     ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+#+end_src
+
+#+begin_src emacs-lisp
+  (defun org-summary-todo (n-done n-not-done)
+    "Switch entry to DONE when all subentries are done, to TODO otherwise."
+    (let (org-log-done org-log-states)   ; turn off logging
+      (org-todo (if (= n-not-done 0) "DONE" "TODO"))))
+
+  (defun org-journal-find-location ()
+    ;; Open today's journal, but specify a non-nil prefix argument in order to
+    ;; inhibit inserting the heading; org-capture will insert the heading.
+    (org-journal-new-entry t)
+    ;; Position point on the journal's top-level heading so that org-capture
+    ;; will add the new entry as a child entry.
+    (goto-char (point-min)))
+
+
+  (setq
+  ;; The setup below does not play well with the capture templates clocking
+  ;; org-clock-in-switch-to-state "STARTED"
+   org-log-into-drawer t ;; Log everything into the LOGBOOK drawer
+   org-clock-into-drawer t
+   org-clock-out-remove-zero-time-clocks t
+   org-clock-out-when-done t)
+#+end_src
+
+** Org capture
+
+
+ #+begin_src emacs-lisp
+   ;; Capture templates for: TODO tasks, Notes, appointments, phone calls,
+   ;; and org-protocol
+   ;; "" makes everything default to org-defaults-note-file
+   (use-package org-capture
+     :ensure nil
+     :config
+     (setq org-capture-templates
+           '(("t" "Todo" entry (file+headline "tasks.org" "Unsorted tasks")
+              "* TODO %?\n" :clock-in t :clock-resume t)
+             ("m" "Meeting notes" entry
+              (file "")
+              (file "~/documents/org/capture-templates/meeting-notes.org")
+              :empty-lines-before 2
+              :immediate-finish t)
+             ("n" "Note" entry (file+headline "notes.org" "Misc")
+              "* %? :@note:\n"
+              :clock-in t :clock-resume t :empty-lines-after 1 :empty-lines-before 1)
+             ("i" "Issue" entry (file "tasks.org")
+              "* TODO $?\n
+                $^{Issue}p\n"
+              :empty-lines-before 1
+              :empty-lines-after 1
+              :clock-keep t)
+             ("l" "TIL" entry (file+headline "notes.org" "TIL")
+              "* %? :@til:\n"
+              :clock-in t :clock-resume t :empty-lines-after 1 :empty-lines-before 1)
+             ("k" "Templates for knowledge")
+             ("kb" "Books (later)" entry
+              (file+olp "tasks.org" "Work" "Knowledge" "Book")
+              "* %? :book:\n"
+              :clock-in t :clock-resume t :empty-lines-after 1 :empty-lines-before 1)
+             ("kp" "Paper (later)" entry
+              (file+olp "tasks.org" "Work" "Knowledge" "Article")
+              "* %? :paper:\n"
+              :clock-in t :clock-resume t :empty-lines-after 1 :empty-lines-before 1)
+             ("kv" "Video" entry
+              (file+olp "tasks.org" "Work" "Knowledge" "Watch")
+              "* %? :video:\n"
+              :clock-in t :clock-resume t :empty-lines-after 1 :empty-lines-before 1)
+             ("kw" "Blog post" entry
+              (file+olp "tasks.org" "Work" "Knowledge" "Blog post")
+              "* %? :blog:\n"
+              :clock-in t :clock-resume t :empty-lines-after 1 :empty-lines-before 1)
+             ("kl" "Podcast/Listen" entry
+              (file+olp "tasks.org" "Work" "Knowledge" "Listen")
+              "* %? ::\n"
+              :clock-in t :clock-resume t :empty-lines-after 1 :empty-lines-before 1)
+
+             ("c" "Email/phone/..." entry
+              (file+headline "tasks.org" "Calls")
+              "* COM %? :@com:\n" :clock-in t :clock-resume t)
+             ("a" "Appointments" entry
+              (file+olp "tasks.org" "Unsorted tasks")
+              "* %^{@meeting|@conference|@workshop|@one2one|@talk|@sotg|@call|@misc} %^t %?  :%\\1:@meeting:\n ")
+             ("c" "Code Snippet" entry (file+headline "task" "Code")
+              "* Code snippet :: %? :code:\n" )
+             ("w" "weight" entry (file+datetree "weight.org")
+              "* %(format-time-string org-journal-time-format) %?")
+             ("j" "Journal entry" entry
+              (file+datetree "journal.org")
+              "* %(format-time-string org-journal-time-format)%^{Title}\n%i%?"))))
+ #+end_src
+
+ #+RESULTS:
+ : t
+
+ #+begin_src emacs-lisp
+   (setq myorg-contacts-file "~/documents/org/contacts.org")
+   ;; (add-to-list
+   ;;  'org-capture-templates
+   ;;  '("o" "Contacts" entry (file myorg-contacts-file)
+   ;;    "* %(org-contacts-template-name)
+   ;;      :PROPERTIES:
+   ;;     :EMAIL: %(org-contacts-template-email)
+   ;;     :END:"))
+
+   ;; Keywords
+   (setq
+    org-todo-keywords
+    '((sequence "TODO(t)" "STARTED(s!)" "|" "DONE(d!)")
+      (sequence "WAITING(w@/!)" "HOLD(h)" "SOMEDAY(S!)" "|"
+                "CANCELLED(C@/!)" "DELEGATED(D@/!)")
+      (sequence "COM(c)" "MEETING(m)")))
+                                           ; Pretty up my keywords
+   (setq
+    org-todo-keyword-faces
+    '(("TODO"      . (:foreground "#c0392b" :background "white" weight bold))
+      ("STARTED"   . (:foreground "#d35400" :background "white" weight bold))
+      ("DONE"      . (:foreground "#7f8c8d" :background "white" weight bold))
+      ("CANCELLED" . (:foreground "#bdc3c7" :background "white" weight bold))
+      ("WAITING"   . (:foreground "#8e44ad" :background "white" weight bold))
+      ("DELEGATED" . (:foreground "#f1c40f" :background "white" weight bold))
+      ("SOMEDAY"   . (:foreground "#27ae60" :background "white" weight bold))
+      ("HOLD"      . (:foreground "#e67e22" :background "white" weight bold))
+      ("COM"       . (:foreground "#16a085" :background "white" weight bold))
+      ("MEETING"   . (:foreground "#2980b9" :background "white" weight bold))
+      ))
+
+   (setq
+    org-todo-state-tags-triggers
+    '(("CANCELLED" ("CANCELLED" . t))
+      ("WAITING" ("WAITING" . t))
+      ("SOMEDAY" ("WAITING" . t))
+      ("HOLD" ("WAITING") ("HOLD" . t))
+      (done ("WAITING") ("HOLD"))
+      ("TODO" ("DONE") ("WAITING") ("CANCELLED"))
+      ("STARTED" ("WAITING"))
+      ("DONE" ("WAITING") ("CANCELLED") ("HOLD"))))
+
+
+   (setq org-enforce-todo-dependencies t)
+                                           ; Targets include this file and any file contributing to the agenda - up to 2 levels deep
+   (setq org-refile-targets
+         (quote ((nil :maxlevel . 4)
+                 (org-agenda-files :maxlevel . 4))))
+
+                                           ; Stop using paths for refile targets - we file directly with IDO
+   (setq org-refile-use-outline-path t)
+
+                                           ; Targets complete directly with IDO
+   (setq org-outline-path-complete-in-steps nil)
+
+                                           ; Allow refile to create parent tasks with confirmation
+   (setq org-refile-allow-creating-parent-nodes (quote confirm))
+
+            ;;; Refile settings
+                                           ; Exclude DONE state tasks from refile targets
+   (defun verify-refile-target ()
+     "Exclude todo keywords with a done state from refile targets"
+     (not (member (nth 2 (org-heading-components)) org-done-keywords)))
+
+   (setq org-refile-target-verify-function 'verify-refile-target)
+
+   (defun noskip () "Do not skip anything" nil)
+
+   (setq org-agenda-skip-function-global 'noskip
+         org-agenda-ignore-properties '(category)
+         org-agenda-ignore-drawer-properties '(category)
+         )
+   (setq org-agenda-include-diary t)
+
+   (setq org-agenda-prefix-format
+         '((agenda  . " %i %-12:c%?-12t% s") ;; file name + org-agenda-entry-type
+           ;;(agenda  . "  • ")
+           (timeline  . "  % s")
+           (todo  . "")
+           (tags  . "")
+           (tags-todo  . "")
+           (search . " %i %-12:c")))
+ #+end_src
+
+ #+begin_src emacs-lisp
+   ;; Custom agenda command definitions
+   (setq org-agenda-custom-commands
+         (quote
+          (("P"
+            "Priorities"
+            alltodo
+            ""
+            ((org-agenda-sorting-strategy
+              '(priority-down))))
+           ("z"
+            "Super zaen view"
+            ((agenda
+              ""
+              ((org-agenda-span 'day)
+               (org-super-agenda-groups
+                '((:name "Today"
+                         :time-grid t
+                         :date today
+                         :todo "TODAY"
+                         :scheduled today
+                         :order 1)))))
+             (alltodo
+              ""
+              ((org-agenda-overriding-header
+                "")
+               (org-super-agenda-groups
+                '((:name "Next to do"
+                         :todo "NEXT"
+                         :order 4)
+                  (:name "Immobilier"
+                         :tag "immo"
+                         :order 5)
+                  (:name "In flight"
+                         :todo "WAITING"
+                         :order 2)
+                  (:name "Ongoing"
+                         :todo "STARTED"
+                         :order 3)
+                  (:name "Important"
+                         :tag "Important"
+                         :priority>= "C"
+                         :order 6)
+                  (:name "Due Today"
+                         :deadline today
+                         :order 2)
+                  (:name "Due soon"
+                         :deadline (:from "today" :to "+2m")
+                         :order 7)
+                  (:name "Due Later"
+                         :deadline future
+                         :order 12)
+                  (:name "Overdue"
+                         :deadline past
+                         :order 7)
+                  (:name "Scheduled"
+                         :scheduled future
+                         :order 9)
+                  (:name "Loopless"
+                         :tag "loopless"
+                         :order 10)
+                  (:name "Administration"
+                         :tag "admin"
+                         :order 9)
+                  (:name "Assignments"
+                         :tag "Assignment"
+                         :order 10)
+                  (:name "Issues"
+                         :tag ("issue" "issues")
+                         :order 12)
+                  (:name "Pull/Merge requests"
+                         :tag ("PR" "prs" "mr")
+                         :order 12)
+                  (:name "Projects"
+                         :tag "Project"
+                         :order 14)
+                  (:name "Job search"
+                         :tag "job"
+                         :order 8)
+                  (:name "Emacs"
+                         :tag "Emacs"
+                         :order 20)
+                  (:name "Research"
+                         :tag "Research"
+                         :order 15)
+                  (:name "Reading"
+                         :tag ("book" "blog" "paper")
+                         :order 30)
+                  (:name "Watch"
+                         :tag ("video")
+                         :order 30)
+                  (:name "Listen"
+                         :tag ("podcast")
+                         :order 30)
+                  (:name "Waiting"
+                         :todo "WAITING"
+                         :order 12)
+                  (:name "trivial"
+                         :priority< "D"
+                         :tag ("Trivial" "Unimportant")
+                         :todo ("SOMEDAY")
+                         :order 90)
+                  (:discard (:tag ("Chore" "Routine" "Daily")))))))))
+           ;; ("d" "Upcoming deadlines" agenda ""
+           ;;  ((org-agenda-time-grid nil)
+           ;;   (org-deadline-warning-days 365)
+           ;;   (org-agenda-entry-types '(:deadline))
+           ;;   ))
+           ("W"
+            "Weekly schedule"
+            agenda
+            ""
+            ((org-agenda-ndays 7)
+             ;; agenda will start in week view
+             ;; ensures that repeating events appear on all relevant dates
+             (org-agenda-repeating-timestamp-show-all
+              t)))
+           ("n"
+            "Notes"
+            tags
+            "@note"
+            ((org-agenda-overriding-header
+              "Notes")
+             (org-tags-match-list-sublevels
+              t)))
+           ("c"
+            "Communications"
+            tags
+            "@com"
+            ((org-agenda-overriding-header
+              "Communications")
+             (org-tags-match-list-sublevels
+              t)))
+           ;; Agenda
+           ("w"
+            "Agenda"
+            ((agenda "-CANCELLED-DONE" nil)
+             (todo
+              "WAITING"
+              ((org-agenda-overriding-header
+                "Waiting")))
+             ;;                       (org-agenda-skip-function 'bh/skip-projects)
+             (todo
+              "STARTED"
+              ((org-agenda-overriding-header
+                "Started")))
+             (tags-todo
+              "-WAITING-CANCELLED-STARTED-@ci-@home-@personal-@read/!+TODO"
+              ((org-agenda-overriding-header
+                "Todo")
+               (org-agenda-todo-ignore-scheduled
+                nil)
+               (org-agenda-todo-ignore-deadlines
+                nil)
+               (org-tags-match-list-sublevels
+                t)
+               (org-agenda-sorting-strategy
+                '(priority-down
+                  effort-up
+                  category-keep))))
+             (todo
+              "COM"
+              ((org-agenda-overriding-header
+                "Communications")))
+             (tags
+              "+@meeting+@work"
+              ((org-agenda-overriding-header
+                "Work appointments")))
+             ;;                 (org-agenda-skip-entry-if 'todo 'done)))
+             (tags-todo
+              "@read/TODO"
+              ((org-agenda-overriding-header
+                "Readings")
+               (org-tags-match-list-sublevels
+                nil)))
+             (tags
+              "@write"
+              ((org-agenda-overriding-header
+                "Writing")
+               (org-tags-match-list-sublevels
+                nil)))
+             (tags-todo
+              "@home-book/TODO"
+              ((org-agenda-overriding-header
+                "Personal")
+               (org-tags-match-list-sublevels
+                nil)))
+             ;; (tags "@home+@meeting"
+             ;;       ((org-agenda-overriding-header "Personal meetings")))
+             (todo
+              "SOMEDAY"
+              ((org-agenda-overriding-header
+                "Later"))))
+            ;; End categories
+            nil)
+           ("r"
+            "Tasks to Refile"
+            tags
+            "REFILE"
+            ((org-agenda-overriding-header
+              "Notes and Tasks to Refile")))
+           ("D"
+            "Done taks to archive"
+            tags
+            "DONE|CANCELLED|CLOSED"
+            ((org-agenda-overriding-header
+              "Notes and Tasks to archive")))
+           ("#"
+            "Stuck Projects"
+            tags-todo
+            "-CANCELLED/!"
+            ((org-agenda-overriding-header
+              "Stuck Projects")
+             (org-tags-match-list-sublevels
+              'indented)
+             ;;                (org-agenda-skip-function 'bh/skip-non-stuck-projects)
+             ))
+           ("R"
+            "Relevant Tasks"
+            tags-todo
+            "-REFILE-CANCELLED/!-NEXT-STARTED-WAITING"
+            ((org-agenda-overriding-header
+              "Relevant Tasks")
+             ;;(org-agenda-skip-function 'bh/skip-non-relevant-tasks)
+             (org-tags-match-list-sublevels
+              'indented)
+             (org-agenda-sorting-strategy
+              '(category-keep))))
+           ("p"
+            "Projects"
+            tags-todo
+            "-CANCELLED/!"
+            ((org-agenda-overriding-header
+              "Projects")
+             (org-tags-match-list-sublevels
+              'indented)
+             (org-agenda-todo-ignore-scheduled
+              'future)
+             (org-agenda-todo-ignore-deadlines
+              'future)
+             (org-agenda-sorting-strategy
+              '(category-keep))))
+           ("w"
+            "Waiting Tasks"
+            todo
+            "WAITING|SOMEDAY"
+            ((org-agenda-overriding-header
+              "Waiting and Postponed tasks")))
+           ("A"
+            "Tasks to Archive"
+            tags
+            "-REFILE/"
+            ((org-agenda-overriding-header
+              "Tasks to Archive")
+             ;;            (org-agenda-skip-function 'bh/skip-non-archivable-tasks)
+             )))))
+ #+end_src
+
+ #+begin_src emacs-lisp
+
+   ;;shortcut to open main org file
+   (defun gtd ()
+     (interactive)
+     (find-file (concat org-directory "/notes.org")))
+
+   ;; org files to consider for agenda listings
+   ;; set archive directory too
+   (let ((archive_dir (concat org-directory "/archive/")))
+     (setq org-archive-location
+           (concat archive_dir (format-time-string "%Y") ".org::* From %s")))
+
+   (setq org-blank-before-new-entry
+         '((heading . t) (plain-list-item . nil)))
+
+   (setq org-tag-alist
+         '((:startgroup . nil)
+           ("@office"   . ?o)
+           ("@home"     . ?h)
+           (:endgroup   . nil)
+           ("noexport"  . ?n)
+           ("@computer" . ?c)
+           ("@project"  . ?j)
+           ("@idea"     . ?i)
+           ("@ci"       . ?s)
+           ("@rv"       . ?v)
+           ("@com"      . ?m)
+           (:startgroup . nil)
+           ("@read"     . ?r)
+           ("@listen"   . ?l)
+           ("@write"    . ?e)
+           ("@watch"    . ?e)
+           (:endgroup   . nil)
+           (:startgroup . nil)
+           ("@work"     . ?w)
+           ("@personal" . ?p)
+           (:endgroup   . nil)))
+
+
+   ;; for birthdays and dates
+   (require 'calendar)
+   (if (>= emacs-major-version 23) (calendar-set-date-style 'iso) )
+   (setq iso-calendar-style t)
+
+   ;; Make windmove work in org-mode:
+   (add-hook 'org-shiftup-final-hook    'windmove-up)
+   (add-hook 'org-shiftleft-final-hook  'windmove-left)
+   (add-hook 'org-shiftdown-final-hook  'windmove-down)
+   (add-hook 'org-shiftright-final-hook 'windmove-right)
+   (add-hook 'org-mode-hook 'turn-on-auto-fill)
+   ;;(add-hook 'org-mode-hook 'flyspell-mode)
+
+   (defun org-timerange ()
+     (interactive)
+     (org-time-stamp ())
+     (insert "--")
+     (org-time-stamp ()))
+
+   (defun rb/org-notes ()
+     (interactive)
+     (find-file "~/documents/org/notes.org"))
+
+   (defun rb/org-local-set-keys ()
+     "local keymap for org-mode"
+     (interactive "P")
+     (local-set-key (kbd "C-c l") 'org-store-link)
+     (local-set-key (kbd "C-c a") 'org-agenda)
+     (local-set-key (kbd "C-c o") 'rb/org-notes)
+     (local-set-key (kbd "<f8>")  'org-timerange)
+     (local-set-key (kbd "<f10>") 'org-export-beamer-as-pdf))
+
+   (add-hook 'org-mode-hook 'rb/org-local-set-keys)
+
+   (defun custom-org-agenda-mode-defaults ()
+     (org-defkey org-agenda-mode-map "W" 'oh/agenda-remove-restriction)
+     (org-defkey org-agenda-mode-map "N" 'oh/agenda-restrict-to-subtree)
+     (org-defkey org-agenda-mode-map "P" 'oh/agenda-restrict-to-project)
+     (org-defkey org-agenda-mode-map "q" 'bury-buffer)
+     (org-defkey org-agenda-mode-map "I" 'org-clock-in)
+     (org-defkey org-agenda-mode-map "O" 'org-clock-out)
+     (org-defkey org-agenda-mode-map (kbd "C-c C-x C-i") 'org-clock-in)
+     (org-defkey org-agenda-mode-map (kbd "C-c C-x C-o") 'org-clock-out))
+
+   (add-hook 'org-agenda-mode-hook 'custom-org-agenda-mode-defaults 'append)
+   ;;(setq org-agenda-include-diary t)
+   ;;(require 'remember)
+
+   ;; (use-package ob-python
+   ;;   :defer t
+   ;;   :commands (org-babel-execute:python))
+
+   ;; (use-package ob-ocaml
+   ;;   :defer t
+   ;;   :commands (org-babel-execute:ocaml))
+
+   ;; (use-package ob-shell
+   ;;   :defer t
+   ;;   :commands (org-babel-execute:shell
+   ;;              org-babel-execute:bash))
+
+
+   (org-babel-do-load-languages
+    'org-babel-load-languages
+    '((C .t)
+      (ocaml . t)
+      (ditaa . t)
+      (dot . t)
+      (plantuml . t)
+      (org . t)
+      (latex . t)
+      (ruby . t)
+      (gnuplot . t)
+      (clojure . t)
+      (python . t)
+      (mermaid . t)
+                                           ;      (ledger . t)                         ;
+      (emacs-lisp . t)
+      (shell . t)
+      (haskell . t)))
+
+   (setq org-plantuml-jar-path
+         (expand-file-name "/opt/plantuml/plantuml.jar"))
+
+   (setq org-src-fontify-natively t)
+
+   (defun my-org-confirm-babel-evaluate (lang body)
+     (not (string= lang "ditaa")))  ; don't ask for ditaa
+
+   ;; Do not ask for confirmation in evaluating babel blocks
+   (setq org-confirm-babel-evaluate nil)
+   (setq org-babel-ditaa-java-cmd "/usr/sbin/ditaa")
+
+   (setq org-babel-default-header-args:ditaa nil)
+
+
+   ;; Everything in lowercase please for template expansions
+   ;; (setq org-structure-template-alist
+   ;;       (quote( ("s" "#+begin_src ?\n\n#+end_src" "<src lang=\"?\">\n\n</src>")
+   ;;               ("e" "#+begin_example\n?\n#+end_example" "<example>\n?\n</example>")
+   ;;               ("q" "#+begin_quote\n?\n#+end_quote" "<quote>\n?\n</quote>")
+   ;;               ("v" "#+begin_verse\n?\n#+end_verse" "<verse>\n?\n</verse>")
+   ;;               ("c" "#+begin_center\n?\n#+end_center" "<center>\n?\n</center>")
+   ;;               ("l" "#+begin_latex\n?\n#+end_latex"
+   ;;                "<literal style=\"latex\">\n?\n</literal>")
+   ;;               ("L" "#+latex: "
+   ;;                "<literal style=\"latex\">?</literal>")
+   ;;               ("h" "#+begin_html\n?\n#+end_html"
+   ;;                "<literal style=\"html\">\n?\n</literal>")
+   ;;               ("H" "#+html: " "<literal style=\"html\">?</literal>")
+   ;;               ("a" "#+begin_ascii\n?\n#+end_ascii")
+   ;;               ("A" "#+ascii: ")
+   ;;               ("i" "#+index: ?" "#+index: ?")
+   ;;               ("I" "#+include %file ?" "<include file=%file markup=\"?\">"))))
+
+   ;;(setq org-html-htmlize-output-type 'css)
+
+
+   (require 'ox-publish)
+   (setq org-publish-project-alist
+         '(
+           ("dim0436"
+            :base-directory "~/dim0436/"
+            :base-extension "org"
+            :publishing-directory "~/documents/www/dim0436"
+            :recursive t
+            :publishing-function org-html-publish-to-html
+            :headline-levels 4
+            :auto-preamble t
+            )
+           )
+         )
+
+   ;;(require 'ox-beamer)
+   (setq org-beamer-environments-extra
+         '(("lemma" "l" "\\begin{lemma}%a%U" "\\end{lemma}")))
+
+   ;; Org-mode related
+   ;; (global-set-key (kbd "C-c C-x C-i") 'org-pomodoro)
+   ;; (global-set-key (kbd "C-c C-x C-o") 'org-pomodoro)
+ #+end_src
+
+** Comment / export / paragraph
+
+   Prevent an automatic new line after comment lines. This allows to add comment
+   and keep the paragraph structure.
+   #+begin_src emacs-lisp
+     ;; remove comments from org document for use with export hook
+     ;; https://emacs.stackexchange.com/questions/22574/orgmode-export-how-to-prevent-a-new-line-for-comment-lines
+     (defun delete-org-comments (backend)
+       (cl-loop for comment in (reverse (org-element-map (org-element-parse-buffer)
+1                                         'comment 'identity))
+	     do
+	     (setf (buffer-substring (org-element-property :begin comment)
+				     (org-element-property :end comment))
+		   "")))
+
+     ;; add to export hook
+     (add-hook 'org-export-before-processing-hook 'delete-org-comments)
+   #+end_src
+
+
+* Ob-async
+
+  Allows to execute org-babel code blocks asynchronously.
+  To use it add =:async= to header-args of the block.
+
+#+begin_src emacs-lisp
+  (use-package ob-async
+    :disabled t ; :ensure t
+    :after org)
+#+end_src
+
+
+* Graphql
+
+#+begin_src emacs-lisp 
+  (use-package graphql-mode :ensure t)
+  (use-package ob-graphql :ensure t :after (org grapqhl-mode))
+#+end_src
+
+* org-rich-yank
+
+#+begin_src emacs-lisp
+(use-package org-rich-yank
+  :ensure t
+  :defer t
+  :after org
+  :bind (:map org-mode-map
+	      ("C-M-y" . org-rich-yank)))
+#+end_src
+
+* orgit
+
+#+begin_src emacs-lisp
+  (use-package orgit
+    :after (:all org magit) ;; (org magit) would work as well
+    :ensure t
+  )
+#+end_src
+
+
+
+* Org roam
+
+  #+begin_src emacs-lisp
+    (use-package org-roam
+      :ensure t
+      :after org
+      :hook
+      (after-init . org-roam-mode)
+      :custom
+      (org-roam-directory (concat org-directory "/" "zknotes"))
+      (org-roam-buffer-position 'bottom)
+      (org-roam-buffer-height 0.2)
+      (org-roam-completion-system 'helm)
+      :bind (("C-c n l" . org-roam-buffer-toggle)
+             ("C-c n f" . org-roam-node-find)
+             ("C-c n g" . org-roam-graph)
+             ("C-c n i" . org-roam-node-insert)
+             ("C-c n c" . org-roam-capture)
+             ;; Dailies
+             ("C-c n j" . org-roam-dailies-capture-today)
+             ("C-c n t" . org-roam-dailies-find-today)
+             ("C-c n n" . org-roam-find-next-note)
+             ("C-c n p" . org-roam-find-previous-note))
+      :config
+      ;; If you're using a vertical completion framework, you might want a more informative completion interface
+      (setq org-roam-node-display-template (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
+      (org-roam-db-autosync-mode)
+      (setq org-roam-dailies-capture-templates
+            `(("d" "default" entry
+               "* %?"
+               :target (file+head "%<%Y_%m_%d>.org"
+                                  "
+    ,#+title: %<%Y-%m-%d>
+    ,#+filetags:
+    ,#+tags: task note pr meeting 
+    ")))))
+#+end_src
+
+** Bibtex
+
+   #+begin_src emacs-lisp
+	;; (use-package org-roam-bibtex
+     ;;        :after org-roam
+     ;;        :hook (org-roam-mode . org-roam-bibtex-mode)
+     ;;        :bind (:map org-mode-map
+     ;;                    (("C-c n a" . orb-note-actions)))
+     ;;        :config
+     ;;        (setq org-roam-bibtex-preformat-keywords
+     ;;              '("=key=" "title" "url" "file" "author-or-editor" "keywords"))
+     ;;        (setq orb-templates
+     ;;              '(("r" "ref" plain (function org-roam-capture--get-point)
+     ;;                 ""
+     ;;                 :file-name "references/${slug}"
+     ;;                 :head "#+TITLE: ${=key=}: ${title}\n#+ROAM_KEY: ${ref}
+
+     ;;      - tags ::
+     ;;      - keywords :: ${keywords}
+
+     ;;      \n* ${title}\n  :PROPERTIES:\n  :Custom_ID: ${=key=}\n  :URL: ${url}\n  :AUTHOR: ${author-or-editor}\n  :NOTER_DOCUMENT: %(orb-process-file-field \"${=key=}\")\n  :NOTER_PAGE: \n  :END:\n\n"
+     ;; o
+     ;;                 :unnarrowed t))))
+   #+end_src
+
+
+** Company
+
+ Enable some form of completion for org-roam.
+
+ #+begin_src emacs-lisp
+   ;; (use-package company-org-roam
+   ;;   :config
+   ;;   (add-to-list 'company-backends 'company-org-roam))
+   ;;   ;; (set (make-local-variable 'company-backends) '(company-org-roam company-yasnippet company-dabbrev)))
+   #+end_src
+
+* Org super agenda
+
+  #+begin_src emacs-lisp
+    (use-package org-super-agenda
+      :after org
+      :ensure t
+      :config
+      (org-super-agenda-mode t)
+      :custom
+      (set-face-attribute
+       'org-super-agenda-header nil
+       :weight 'bold
+       :background "#eeeeee" :height 1.1 :slant 'italic  :box t)
+    )
+  #+end_src
+
+
+* Org-pomodoro
+
+  #+begin_src emacs-lisp
+    (use-package org-pomodoro :after org :ensure t
+      :disabled t
+      :custom
+      (org-pomodoro-short-break-length 17)
+      (org-pomodoro-long-break-frequency 100000) ;; big enough value to never be triggered
+      (org-pomodoro-length 52))
+  #+end_src
+
+
+* Org custom links
+
+
+#+begin_src emacs-lisp
+  (org-link-set-parameters
+   "kava"
+   :face '(:weight bold
+        	         :underline t
+        	         :background "#eeee")
+   :follow (lambda (path)
+             (shell-command
+              (format
+               "open https://www.mintscan.io/kava/transactions/%"
+               path))))
+
+#+end_src
+
+
+
+
+* Holidays
+
+#+begin_src emacs-lisp
+  (setq french-holidays
+	'((holiday-fixed 1 1 "Jour de l'an")
+	  (holiday-fixed 5 8 "Victoire 45")
+	  (holiday-fixed 7 14 "Fête nationale")
+	  (holiday-fixed 8 15 "Assomption")
+	  (holiday-fixed 11 1 "Toussaint")
+	  (holiday-fixed 11 11 "Armistice 18")
+	  (holiday-easter-etc 1 "Lundi de Pâques")
+	  (holiday-easter-etc 39 "Ascension")
+	  (holiday-easter-etc 50 "Lundi de Pentecôte")
+	  (holiday-fixed 1 6 "Épiphanie")
+	  (holiday-fixed 2 2 "Chandeleur")
+	  (holiday-fixed 2 14 "Saint Valentin")
+	  (holiday-fixed 5 1 "Fête du travail")
+	  (holiday-fixed 5 8 "Commémoration de la capitulation de l'Allemagne en 1945")
+	  (holiday-fixed 6 21 "Fête de la musique")
+	  (holiday-fixed 11 2 "Commémoration des fidèles défunts")
+	  (holiday-fixed 12 25 "Noël")
+	  ;; fêtes à date variable
+	  (holiday-easter-etc 0 "Pâques")
+	  (holiday-easter-etc 49 "Pentecôte")
+	  (holiday-easter-etc -47 "Mardi gras")
+	  (holiday-float 6 0 3 "Fête des pères") ;; troisième dimanche de juin
+	  ;; Fête des mères
+	  (holiday-sexp
+	   '(if (equal
+		 ;; Pentecôte
+		 (holiday-easter-etc 49)
+		 ;; Dernier dimanche de mai
+		 (holiday-float 5 0 -1 nil))
+		;; -> Premier dimanche de juin si coïncidence
+		(car (car (holiday-float 6 0 1 nil)))
+	      ;; -> Dernier dimanche de mai sinon
+	      (car (car (holiday-float 5 0 -1 nil))))
+	   "Fête des mères")))
+
+
+
+  (setq
+   holiday-other-holidays french-holidays
+   calendar-mark-holidays-flag t
+   )
+#+end_src
+
+*** Extra holidays
+Here's how one would add extra holidays that are absent from those
+pre-configured in Emacs to the calendar.
+           
+#+begin_src emacs-lisp :tangle no
+  (defun o1-holidays ()
+    "docstring"
+    (interactive)
+    (let ((base       '((holiday-fixed 1 1 "New Year's day")
+                        (holiday-fixed 1 15 "MLK Jr. day")
+                        (holiday-fixed 2 19 "President's day")
+                        (holiday-fixed 5 27 "Memorial day")
+                        (holiday-fixed 6 19 "Juneteenth")
+                        (holiday-fixed 7 4 "Independence day")
+                        (holiday-fixed 9 2 "Labor day")
+                        (holiday-fixed 11 28 "Thanksgiving day")
+                        (holiday-fixed 11 29 "Thanksgiving holiday")
+                        )
+                      ))
+      (cl-loop
+       for day from 5 to 9
+       do
+       (push `(holiday-fixed 8 ,day "O(1) Annual Company Holiday") base))
+      (cl-loop
+       for day from 24 to 31
+       do
+       (push
+        `(holiday-fixed 12 ,day "O(1) End of the year Annual Company Holiday")
+        base)
+       )
+      base
+      )
+    )
+
+  (setq
+   holiday-other-holidays '(list french-holidays)
+   calendar-mark-holidays-flag t
+   )
+#+end_src
+
+*** Utilities
+
+#+begin_src emacs-lisp 
+  (defun rb/org-insert-dated-item ()
+    "Insert a list item that start with org-mode formatted inactive
+  time stamp with today's date and time."
+    (interactive)
+    (org-insert-item)
+    (insert (format-time-string (org-time-stamp-format t t)))
+  )
+
+  (defun rb/org-update-timestamp-to-today ()
+    "If point is on an Org timestamp, update it to today's date.
+  Otherwise, emit a 'not a timestamp' message."
+    (interactive)
+    (if (org-at-timestamp-p t)
+        (let* ((ts (org-element-context))
+               (begin (org-element-property :begin ts))
+               (end (org-element-property :end ts))
+               (today (format-time-string (org-time-stamp-format t t))))
+          ;; Replace the old timestamp with today's date
+          (save-excursion
+            (goto-char begin)
+            (delete-region begin end)
+            (insert today)))
+      (message "Not an org timestamp")))
+
+  ;; Simple macro to be used in magit + forge
+  (defalias 'insert_forge_elt_for_today
+     (kmacro "C-a <return> C-c l q C-c n t M-> C-c <return> C-c C-l <return> <return>"))
+#+end_src
+
+* Study sessions
+
+Plan-aware helpers for study plans organised as =INDEX.org= +
+=week-*.org= sibling files. Canonical layout under
+=~/documents/org/study-plans/=, with each plan as its own
+subdirectory. Each =* Day N= heading is treated as a 30-min
+session.
+
+Bindings:
+- =C-c s n= → =rb/study-next= : from a file inside a plan
+  directory, open the first TODO session in that plan; narrow,
+  clock in, start a 30-min timer.
+- =C-c s p= → =rb/study-next-in-plan= : prompt for which plan
+  (subdirectory of =rb/study-plans-root=); default is the
+  last-chosen plan. Same launch behaviour as =rb/study-next=.
+- =C-c s d= → =rb/study-done= : mark current session DONE, clock
+  out, stop timer, widen.
+
+#+begin_src emacs-lisp
+  (defcustom rb/study-plans-root "~/documents/org/study-plans"
+    "Root directory under which study-plan subdirectories live.
+  Each subdirectory is expected to contain `INDEX.org` plus
+  `week-*.org` files."
+    :type 'directory
+    :group 'rb)
+
+  (defvar rb/study-last-plan nil
+    "Last study plan chosen via `rb/study-next-in-plan'.
+  Used as the default for the next invocation.")
+
+  (defun rb/study--plan-files (&optional dir)
+    "Return week-*.org files in DIR, alphabetically.
+  DIR defaults to the directory of the current buffer's file."
+    (let ((d (or dir
+                 (and buffer-file-name
+                      (file-name-directory buffer-file-name)))))
+      (when (and d (file-directory-p d))
+        (sort (directory-files d t "^week-.*\\.org\\'") #'string<))))
+
+  (defun rb/study--first-todo (&optional dir)
+    "Return (FILE . POS) of next TODO heading across plan files in DIR.
+  DIR defaults to the directory of the current buffer's file."
+    (catch 'hit
+      (dolist (f (rb/study--plan-files dir))
+        (with-current-buffer (find-file-noselect f)
+          (org-with-wide-buffer
+           (goto-char (point-min))
+           (when (re-search-forward
+                  (concat "^\\*+ +" org-not-done-regexp) nil t)
+             (throw 'hit (cons f (match-beginning 0)))))))
+      nil))
+
+  (defun rb/study--launch (hit)
+    "Given (FILE . POS), open the file, narrow, clock in, start timer."
+    (if hit
+        (progn
+          (find-file (car hit))
+          (widen)
+          (goto-char (cdr hit))
+          (org-back-to-heading t)
+          (org-show-entry)
+          (org-narrow-to-subtree)
+          (org-clock-in)
+          (org-timer-set-timer "30"))
+      (message "Plan complete — no TODO session left 🏁")))
+
+  (defun rb/study-next ()
+    "Open the next undone study session in the current plan.
+  Run from any file inside a plan directory (typically the
+  plan's INDEX.org).  Files matching =week-*.org= in the same
+  directory are scanned in alphabetical order."
+    (interactive)
+    (rb/study--launch (rb/study--first-todo)))
+
+  (defun rb/study--list-plans ()
+    "Return list of plan-subdirectory names under `rb/study-plans-root'."
+    (let ((root (expand-file-name rb/study-plans-root)))
+      (when (file-directory-p root)
+        (seq-filter
+         (lambda (n)
+           (and (not (string-prefix-p "." n))
+                (file-directory-p (expand-file-name n root))))
+         (directory-files root)))))
+
+  (defun rb/study-next-in-plan ()
+    "Prompt for a study plan, then open its next TODO session.
+  Plans are subdirectories of `rb/study-plans-root'.  The chosen
+  plan becomes the default for the next invocation, stored in
+  `rb/study-last-plan'."
+    (interactive)
+    (let* ((plans (rb/study--list-plans)))
+      (unless plans
+        (user-error "No study plans found under %s" rb/study-plans-root))
+      (let* ((default (or rb/study-last-plan (car plans)))
+             (plan (completing-read
+                    (format "Study plan (default %s): " default)
+                    plans nil t nil nil default))
+             (plan-dir (expand-file-name plan rb/study-plans-root)))
+        (setq rb/study-last-plan plan)
+        (rb/study--launch (rb/study--first-todo plan-dir)))))
+
+  (defun rb/study-done ()
+    "Mark the current session DONE, clock out, stop timer, widen."
+    (interactive)
+    (save-excursion
+      (org-back-to-heading t)
+      (org-todo "DONE"))
+    (when (org-clocking-p) (org-clock-out))
+    (when (and (boundp 'org-timer-current-timer) org-timer-current-timer)
+      (org-timer-stop))
+    (widen))
+
+  (with-eval-after-load 'org
+    (define-key org-mode-map (kbd "C-c s n") #'rb/study-next)
+    (define-key org-mode-map (kbd "C-c s p") #'rb/study-next-in-plan)
+    (define-key org-mode-map (kbd "C-c s d") #'rb/study-done))
+#+end_src
+
+* Weekly planning
+
+Open (or create on first visit) the weekly planning file for the
+relevant ISO week. File path:
+=<rb/weekly-planning-directory>/YYYY/Wnn.org=, where YYYY is the
+ISO week-numbering year and =nn= is the zero-padded ISO week
+number. The file gets a =#+TITLE= naming the Monday and Sunday
+dates the first time it's created.
+
+Behaviour: on Monday–Friday opens /this/ week; on Saturday or
+Sunday opens /next/ week, so weekend planning runs on the week
+about to start.
+
+Binding:
+- =C-c w= → =rb/plan-week=
+
+#+begin_src emacs-lisp
+  (defcustom rb/weekly-planning-directory "~/documents/org/weekly"
+    "Root directory for weekly planning files.
+  Files live at DIRECTORY/YYYY/Wnn.org where YYYY is the ISO
+  week-numbering year and nn is the zero-padded ISO week number."
+    :type 'directory
+    :group 'rb)
+
+  (defun rb/plan-week ()
+    "Open the weekly planning file for the relevant week.
+  Mon-Fri opens this week; Sat-Sun opens the upcoming week
+  (so weekend planning targets the week about to start).
+
+  The file is `rb/weekly-planning-directory'/YYYY/Wnn.org and is
+  created with a `#+TITLE` heading on first visit."
+    (interactive)
+    (let* ((now (current-time))
+           ;; ISO weekday: 1=Mon … 7=Sun.
+           (dow (string-to-number (format-time-string "%u" now)))
+           (offset (cond ((= dow 6) 2)        ; Sat → next Mon
+                         ((= dow 7) 1)        ; Sun → next Mon
+                         (t (- 1 dow))))      ; Mon-Fri → this Mon
+           (mon (time-add now (* offset 86400)))
+           (sun (time-add mon (* 6 86400)))
+           (year (format-time-string "%G" mon))
+           (week (format-time-string "%V" mon))
+           (mon-str (format-time-string "%Y-%m-%d" mon))
+           (sun-str (format-time-string "%Y-%m-%d" sun))
+           (dir (expand-file-name year rb/weekly-planning-directory))
+           (file (expand-file-name (format "w%s.org" week) dir))
+           (fresh (not (file-exists-p file))))
+      (make-directory dir t)
+      (find-file file)
+      (when fresh
+        (insert (format "#+TITLE: Week %s: %s — %s\n\n" week mon-str sun-str))
+        (save-buffer))))
+
+  (with-eval-after-load 'org
+    (define-key org-mode-map (kbd "C-c w") #'rb/plan-week))
+#+end_src
+
+* Quick task entry
+Add a TODO to the main agenda file with a back-link to the org section
+(or file) currently being visited.  The destination heading inside the
+tasks file is picked interactively via the standard ~org-refile~
+machinery.
+
+#+begin_src emacs-lisp
+  (defcustom rb/tasks-file
+    (expand-file-name "tasks.org" "~/documents/org/")
+    "Agenda tasks file used by `rb/org-add-task'."
+    :type 'file
+    :group 'rb)
+
+  (defun rb/org-add-task--back-link ()
+    "Return an org link to the current heading (with ID) or the visited file."
+    (cond
+     ((and (derived-mode-p 'org-mode) (not (org-before-first-heading-p)))
+      (let ((id (org-id-get-create))
+            (title (org-get-heading t t t t)))
+        (format "[[id:%s][%s]]" id title)))
+     (buffer-file-name
+      (let ((path (abbreviate-file-name buffer-file-name)))
+        (format "[[file:%s][%s]]" path (file-name-nondirectory path))))
+     (t
+      (user-error "Buffer is not visiting a file and not under a heading"))))
+
+  (defun rb/org-add-task ()
+    "Add a TODO entry to `rb/tasks-file' with a back-link to the current context.
+
+The back-link targets the current org heading (creating an ID if needed)
+when point is under one, or the file otherwise.  Prompts for the task
+name and uses the `org-refile' machinery to pick the destination heading
+inside the tasks file."
+    (interactive)
+    (unless (derived-mode-p 'org-mode)
+      (user-error "Not in an org buffer"))
+    (let ((task-name (string-trim (read-string "Task name: "))))
+      (when (string-empty-p task-name)
+        (user-error "Task name is empty"))
+      (let* ((back-link (rb/org-add-task--back-link))
+             (org-refile-targets `((,rb/tasks-file :maxlevel . 9)))
+             (org-refile-use-outline-path 'file)
+             (org-outline-path-complete-in-steps nil)
+             (target (org-refile-get-location "Insert under" nil nil t))
+             (target-file (nth 1 target))
+             (target-pos (nth 3 target)))
+        (with-current-buffer (find-file-noselect target-file)
+          (save-excursion
+            (let ((level (if target-pos
+                             (save-excursion
+                               (goto-char target-pos)
+                               (1+ (or (org-current-level) 0)))
+                           1)))
+              (if target-pos
+                  (progn (goto-char target-pos)
+                         (org-back-to-heading t)
+                         (org-end-of-subtree t t)
+                         (unless (bolp) (insert "\n")))
+                (goto-char (point-max))
+                (unless (bolp) (insert "\n")))
+              (insert (make-string level ?*) " TODO " task-name "\n"
+                      back-link "\n")))
+          (save-buffer))
+        (message "Added task %S to %s"
+                 task-name (file-name-nondirectory rb/tasks-file)))))
+
+  (with-eval-after-load 'org
+    (define-key org-mode-map (kbd "C-c t") #'rb/org-add-task))
+#+end_src
+
+
+

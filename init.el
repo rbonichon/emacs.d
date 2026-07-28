@@ -41,7 +41,8 @@
         "light"
         "autorandr"
         "vol"
-        "ir"))
+        "ir"
+        "prospect"))
 
 (cl-loop
  for lib in my-libraries

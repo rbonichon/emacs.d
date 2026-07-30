@@ -133,11 +133,19 @@ An instance buffer's name starts with `*claude' and has a process."
   "n"   #'claude-code-multi-new
   "g"   #'revert-buffer)
 
+(defun claude-code-multi--update-header ()
+  "Refresh the tab line to show the key hints.
+The header line is left to `tabulated-list-mode' for the column titles."
+  (setq-local tab-line-format
+              " Claude instances — [RET switch] [o other window] [r rename] \
+[k kill] [n new] [g refresh] [q quit]"))
+
 (define-derived-mode claude-code-multi-list-mode tabulated-list-mode "Claude-List"
   "Major mode listing running Claude instances."
   (setq tabulated-list-format [("Buffer" 30 t) ("Status" 6 t) ("Directory" 50 t)]
         tabulated-list-sort-key '("Buffer" . nil)
         tabulated-list-entries #'claude-code-multi--list-entries)
+  (claude-code-multi--update-header)
   (tabulated-list-init-header))
 
 ;;;###autoload

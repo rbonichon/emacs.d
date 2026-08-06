@@ -1425,6 +1425,21 @@ Add a TODO to the main agenda file with a back-link to the org section
 tasks file is picked interactively via the standard ~org-refile~
 machinery.
 
+This is a plain ~org-capture~ template (key ~T~) built from two pieces:
+
+- a ~file+function~ target, whose function runs the refile prompt and
+  leaves point on the chosen heading — ~org-capture~ then files the
+  entry as its last child (or as a top-level entry when the file itself
+  is selected);
+- a ~%(...)~ expansion that computes the back-link in the buffer the
+  capture was started from, so ~org-id-get-create~ still stamps the
+  right heading.
+
+Going through ~org-capture~ means the usual capture affordances come for
+free: ~C-c C-k~ to abort, editing the body/tags/scheduling before
+finalising, ~C-u C-c C-w~ to jump back, and ~C-c c T~ as an alternative
+entry point.
+
 #+begin_src emacs-lisp
   (defcustom rb/tasks-file
     (expand-file-name "tasks.org" "~/documents/org/")
@@ -1445,45 +1460,46 @@ machinery.
      (t
       (user-error "Buffer is not visiting a file and not under a heading"))))
 
+  (defun rb/org-add-task--capture-link ()
+    "Back-link to the buffer the current capture was initiated from.
+Meant to be used from a `%(...)' expansion in a capture template."
+    (let ((origin (or (org-capture-get :original-buffer) (current-buffer))))
+      (if (buffer-live-p origin)
+          (with-current-buffer origin (rb/org-add-task--back-link))
+        (user-error "Capture origin buffer is gone"))))
+
+  (defun rb/org-add-task--goto-target ()
+    "Pick a heading in the current buffer with the `org-refile' machinery.
+Leaves point on the chosen heading, so `org-capture' files the entry as
+its child; when the file itself is selected, leaves point at the end of
+the buffer on an empty line, which files the entry at top level."
+    (let* ((org-refile-targets `((,(buffer-file-name (buffer-base-buffer))
+                                  :maxlevel . 9)))
+           (org-refile-use-outline-path 'file)
+           (org-outline-path-complete-in-steps nil)
+           (target (org-refile-get-location "Insert under"))
+           (pos (nth 3 target)))
+      (if pos
+          (progn (goto-char pos) (org-back-to-heading t))
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n")))))
+
   (defun rb/org-add-task ()
-    "Add a TODO entry to `rb/tasks-file' with a back-link to the current context.
+    "Capture a TODO into `rb/tasks-file' with a back-link to the current context.
 
 The back-link targets the current org heading (creating an ID if needed)
-when point is under one, or the file otherwise.  Prompts for the task
-name and uses the `org-refile' machinery to pick the destination heading
-inside the tasks file."
+when point is under one, or the visited file otherwise.  The destination
+heading inside the tasks file is picked with the `org-refile' machinery."
     (interactive)
-    (unless (derived-mode-p 'org-mode)
-      (user-error "Not in an org buffer"))
-    (let ((task-name (string-trim (read-string "Task name: "))))
-      (when (string-empty-p task-name)
-        (user-error "Task name is empty"))
-      (let* ((back-link (rb/org-add-task--back-link))
-             (org-refile-targets `((,rb/tasks-file :maxlevel . 9)))
-             (org-refile-use-outline-path 'file)
-             (org-outline-path-complete-in-steps nil)
-             (target (org-refile-get-location "Insert under" nil nil t))
-             (target-file (nth 1 target))
-             (target-pos (nth 3 target)))
-        (with-current-buffer (find-file-noselect target-file)
-          (save-excursion
-            (let ((level (if target-pos
-                             (save-excursion
-                               (goto-char target-pos)
-                               (1+ (or (org-current-level) 0)))
-                           1)))
-              (if target-pos
-                  (progn (goto-char target-pos)
-                         (org-back-to-heading t)
-                         (org-end-of-subtree t t)
-                         (unless (bolp) (insert "\n")))
-                (goto-char (point-max))
-                (unless (bolp) (insert "\n")))
-              (insert (make-string level ?*) " TODO " task-name "\n"
-                      back-link "\n")))
-          (save-buffer))
-        (message "Added task %S to %s"
-                 task-name (file-name-nondirectory rb/tasks-file)))))
+    (org-capture nil "T"))
+
+  (with-eval-after-load 'org-capture
+    (setq org-capture-templates
+          (cons '("T" "Task (back-link to current context)" entry
+                  (file+function rb/tasks-file rb/org-add-task--goto-target)
+                  "* TODO %?\n%(rb/org-add-task--capture-link)")
+                (seq-remove (lambda (entry) (equal (car entry) "T"))
+                            org-capture-templates))))
 
   (with-eval-after-load 'org
     (define-key org-mode-map (kbd "C-c t") #'rb/org-add-task))

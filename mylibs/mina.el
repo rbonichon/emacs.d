@@ -383,9 +383,6 @@ SPECS is a plist containing
   )
 
 (find-executables-in-dune-file "~/mina/mina/src/app/cli/src/dune")
-(ff-basename "foo/bar")
-(nconc '(foo bar) '(baz foo) '(fo b))
-(seq-find (lambda (e) (and (listp e) (eq (car e) 'fo))) '(e (foo bar)))
 
 
 

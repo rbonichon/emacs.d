@@ -176,6 +176,147 @@
   ;  (pinentry-start)
 #+end_src
 
+** Age & passage                                                   :noexport:
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle no
+:END:
+
+The password store is migrated from GPG to [[https://age-encryption.org][age]]: entries live in
+=~/.passage/store/ENTRY.age=, decrypted either by =age-plugin-yubikey= (PIV slot,
+PIN policy =once= / touch policy =cached=) or by the cold recovery identity. Plan and
+rationale: =~/documents/org/zknotes/20260727094235-migration_pass_gpg_vers_age_passage.org=.
+
+Three layers, loaded in this order:
+
+1. =age.el= — the EPA equivalent: a file-name handler that decrypts =*.age=
+   transparently, so anything doing =insert-file-contents= just works.
+2. =passage.el= — the native age port of password-store.el/pass.el
+   (=passage-copy=, =M-x passage=). Built from git in =nix-config/home/modules/emacs.nix=.
+3. a compat shim so the =password-store-*= commands and =M-x pass= that are already
+   in muscle memory keep working against the =.age= store.
+
+*** age.el
+
+#+begin_src emacs-lisp
+  (use-package age
+    :demand t
+    :custom
+    ;; rage has pinentry support; upstream age deliberately has none. nixpkgs
+    ;; patches age-program to an absolute age path, so override it explicitly.
+    (age-program (or (executable-find "rage") (executable-find "age")))
+    (age-default-identity "~/.passage/identities")
+    ;; A recipients *file*: age.el accepts a pubkey, a path, or a list of both.
+    (age-default-recipient "~/.passage/store/.age-recipients")
+    :config
+    (age-file-enable))
+#+end_src
+
+*** passage.el
+
+=auth-source-passage-filename= must be set before the package loads: passage.el
+computes its =auto-mode-alist= entry from =(passage-store-dir)= at load time.
+
+#+begin_src emacs-lisp
+  (use-package passage
+    :demand t
+    :custom
+    (auth-source-passage-filename "~/.passage/store")
+    :config
+    (setq passage-store-executable (executable-find "passage")))
+#+end_src
+
+passage.el owns the =<store>/.*\.age= entry in =auto-mode-alist= (=passage-view-mode=
+masks the password and renders otp headers). The shim below therefore does *not*
+register a competing =pass-view-mode= entry for the same regexp.
+
+Its =auth-source= backend is deliberately *not* enabled: =auth-sources= is
+restricted to =~/.authinfo.gpg= (see [[*Authentication]]), and appending a second
+backend would change resolution order for mu4e/msmtp. Enable it only if the mail
+secrets are moved into the store:
+
+#+begin_src emacs-lisp :tangle no
+  ;; (auth-source-passage-enable)   ; appends `passage-store' to `auth-sources'
+#+end_src
+
+The =passage-store-otp-*= commands shell out to =passage otp=, a subcommand the
+=passage= fork does not implement — they will fail. TOTP seeds live on the YubiKey
+OATH applet (=ykman oath=) instead.
+
+*** password-store.el / pass.el compat shim
+
+Why a shim is needed at all: since password-store.el 20250618 the *read* path no
+longer shells out to =pass=. =password-store-get= → =auth-source-pass-get= →
+=insert-file-contents= on =ENTRY.gpg=, decrypted by EPA. So
+=(setq password-store-executable "passage")= only redirects the *write* commands;
+the =.gpg= extension stays hardcoded in five other places. These overrides swap it
+for =.age=; age.el then handles the actual decryption.
+
+#+begin_src emacs-lisp
+  (with-eval-after-load 'password-store
+    (setq password-store-executable (executable-find "passage")
+          ;; password-store-dir prefers auth-source-pass-filename
+          auth-source-pass-filename (expand-file-name "~/.passage/store"))
+
+    (defun rb/auth-source-pass--read-entry (entry)
+      "Read ENTRY.age; age.el's file handler decrypts it transparently."
+      (with-temp-buffer
+        (insert-file-contents
+         (expand-file-name (concat entry ".age") auth-source-pass-filename))
+        (buffer-substring-no-properties (point-min) (point-max))))
+    (advice-add 'auth-source-pass--read-entry :override
+                #'rb/auth-source-pass--read-entry)
+
+    (defun rb/auth-source-pass-entries ()
+      "List store entries by their .age files."
+      (let ((store-dir (expand-file-name auth-source-pass-filename)))
+        (mapcar (lambda (f) (file-name-sans-extension (file-relative-name f store-dir)))
+                (directory-files-recursively store-dir "\\.age\\'"))))
+    (advice-add 'auth-source-pass-entries :override #'rb/auth-source-pass-entries)
+
+    (defun rb/password-store--entry-to-file (entry)
+      (concat (expand-file-name entry (password-store-dir)) ".age"))
+    (advice-add 'password-store--entry-to-file :override
+                #'rb/password-store--entry-to-file)
+
+    (defun rb/password-store-list (&optional subdir)
+      (unless subdir (setq subdir ""))
+      (let ((dir (expand-file-name subdir (password-store-dir))))
+        (when (file-directory-p dir)
+          (delete-dups
+           (mapcar #'password-store--file-to-entry
+                   (directory-files-recursively dir ".+\\.age\\'"))))))
+    (advice-add 'password-store-list :override #'rb/password-store-list))
+#+end_src
+
+#+begin_src emacs-lisp
+  (with-eval-after-load 'pass
+    (defun rb/pass--tree (&optional subdir)
+      (unless subdir (setq subdir ""))
+      (let ((path (f-join (password-store-dir) subdir)))
+        (if (f-directory? path)
+            (unless (string= (f-filename subdir) ".git")
+              (cons (f-filename path)
+                    (delq nil (mapcar #'pass--tree (f-entries path)))))
+          (when (and (equal (f-ext path) "age")
+                     (not (backup-file-name-p path)))
+            (password-store--file-to-entry path)))))
+    (advice-add 'pass--tree :override #'rb/pass--tree)
+
+    ;; pass-view opens ENTRY.gpg; point it at ENTRY.age. The buffer then gets
+    ;; passage-view-mode from passage.el's auto-mode-alist entry.
+    (defun rb/pass-view ()
+      (interactive)
+      (pass--with-closest-entry entry
+        (find-file (concat (f-join (password-store-dir) entry) ".age"))))
+    (advice-add 'pass-view :override #'rb/pass-view))
+#+end_src
+
+Known casualties of the shim: =password-store-init= (passage has no =init=;
+recipients are managed by hand in =.age-recipients=) and pass.el's otp integration
+(=pass-view--prepare-otp=). The overrides target internal functions, so a
+=password-store.el= upgrade can silently break them — the canary is
+=M-x password-store-copy= on a known entry after any rebuild.
+
 ** =Ediff=
 
    =Ediff= is the mode that allows to view and merge diff, for example in case
@@ -1243,27 +1384,54 @@ This is useful if one wants to "save" some posts for later reads
               saved-elfeed-search-remain-on-entry)))
   #+end_src
 
-Rewrite erros from Vitalik's blog feed
+Some feeds advertise links on a host that no longer serves the content:
+Vitalik Buterin's feed still points at ~vitalik.ca~ although the site now
+lives at ~vitalik.eth.limo~.  The rewriting happens when entries enter the
+database, so both fresh and already stored entries end up with a working
+link — ~elfeed-entry-merge~ overwrites the stored link with the freshly
+fetched one on every update, so rewriting at visit time only would not
+survive.  ~rb/elfeed-rewrite-db-links~ patches entries that are already in
+the database.
 
 #+begin_src emacs-lisp
-  (defun my/rewrite-vitalik-url (url)
-    "Rewrite vitalik.ca URLs to vitalik.eth.limo"
-    (if (string-match-p "^https://vitalik\\.ca" url)
-        (replace-regexp-in-string "^https://vitalik\\.ca" "https://vitalik.eth.limo" url)
-      url))
+  (defvar rb/elfeed-url-rewrites
+    '(("\\`https?://vitalik\\.ca/" . "https://vitalik.eth.limo/"))
+    "Alist of (REGEXP . REPLACEMENT) applied to elfeed entry links.")
 
-  ;; Apply URL rewriting when visiting entries
-  (defun my/elfeed-show-visit-advice (orig-fun &optional use-generic-p)
-    "Advice to rewrite URLs before visiting"
-    (let* ((entry elfeed-show-entry)
-           (link (elfeed-entry-link entry))
-           (rewritten-link (my/rewrite-vitalik-url link)))
-      (unless (string= link rewritten-link)
-        (setf (elfeed-entry-link entry) rewritten-link))
-      (funcall orig-fun use-generic-p)))
+  (defun rb/elfeed-rewrite-url (url)
+    "Return URL with `rb/elfeed-url-rewrites' applied."
+    (when url
+      (dolist (rule rb/elfeed-url-rewrites url)
+        (setq url (replace-regexp-in-string (car rule) (cdr rule) url)))))
 
+  (defun rb/elfeed-rewrite-entry-links (entries)
+    "Rewrite the link of every entry in ENTRIES.  Return ENTRIES."
+    (dolist (entry entries entries)
+      (let* ((link (elfeed-entry-link entry))
+             (new (rb/elfeed-rewrite-url link)))
+        (unless (equal link new)
+          (setf (elfeed-entry-link entry) new)))))
 
+  (defun rb/elfeed-db-add-rewrite (args)
+    ":filter-args advice for `elfeed-db-add'.
+Entry ids are left alone so that entries keep matching their feed."
+    (cons (rb/elfeed-rewrite-entry-links (car args)) (cdr args)))
 
+  (defun rb/elfeed-rewrite-db-links ()
+    "Apply `rb/elfeed-url-rewrites' to every entry already in the database."
+    (interactive)
+    (elfeed-db-ensure)
+    (let ((count 0))
+      (maphash (lambda (_id entry)
+                 (let* ((link (elfeed-entry-link entry))
+                        (new (rb/elfeed-rewrite-url link)))
+                   (unless (equal link new)
+                     (setf (elfeed-entry-link entry) new)
+                     (setq count (1+ count)))))
+               elfeed-db-entries)
+      (unless (zerop count)
+        (elfeed-db-save))
+      (message "rb/elfeed-rewrite-db-links: rewrote %d link(s)" count)))
 #+end_src
 
   #+begin_src emacs-lisp
@@ -1348,8 +1516,8 @@ Rewrite erros from Vitalik's blog feed
                   (lambda () (interactive)
                     (elfeed-search-set-filter "+music")))
 
-      ;; Rewrite some URLs before visiting
-      (advice-add 'elfeed-show-visit :around #'my/elfeed-show-visit-advice)
+      ;; Rewrite moved URLs as entries enter the database
+      (advice-add 'elfeed-db-add :filter-args #'rb/elfeed-db-add-rewrite)
       )
 
     ;; (define-key elfeed-search-mode-map (kbd "d")
@@ -2531,6 +2699,173 @@ Autoformatter for elisp code
         (global-set-key (kbd "C-x o") 'ace-window)
       :diminish ace-window-mode)
   #+end_src
+
+* Window management
+
+  =ace-window= (above) and =windmove= handle /moving between/ windows.
+  This section covers the other three problems: where a buffer gets
+  /displayed/, how to /undo/ a layout that a package just wrecked, and
+  how to keep several named layouts around.
+
+  The engine here is ~display-buffer-alist~, not a package.  Anything
+  that claims to "manage windows" is ultimately writing entries into
+  it, so it is worth owning those entries directly.  =popper= is the
+  one addition that pays for itself: it classifies transient buffers
+  (compilation, REPLs, help, diagnostics) as popups, shows them in a
+  dismissable bottom window, and lets one key cycle through them.
+
+** Make display rules apply everywhere
+
+   Without this, a plain ~C-x b~ bypasses ~display-buffer-alist~ and
+   every rule below is silently ignored half the time.
+
+   #+begin_src emacs-lisp :tangle no
+     (setq switch-to-buffer-obey-display-actions t)
+
+     ;; Don't split a window that is already small; prefer reusing one.
+     (setq split-height-threshold 80
+           split-width-threshold 160)
+   #+end_src
+
+** Winner: undo a window layout change
+
+
+   ~winner-undo~ walks back through window configurations, which is the
+   cheapest possible cure for "some package just took over my frame".
+
+   Winner's own bindings are ~C-c <left>~ / ~C-c <right>~, which are
+   already =windmove= here (see [[Windmove]]), so they are disabled and
+   rebound under the ~C-x 4~ (other-window) prefix.
+
+   With ~repeat-mode~ enabled, ~winner-repeat-map~ lets you keep pressing
+   ~<left>~ / ~<right>~ after the first invocation; it is left off since
+   it changes the behaviour of many other keys.
+
+   #+begin_src emacs-lisp tangle no
+     (use-package winner
+       :ensure nil
+       ;; `:demand' matters: with only `:bind', use-package would defer
+       ;; loading until the key is pressed, and winner would have no
+       ;; configuration history to undo by then.
+       :demand t
+       :init
+       (setq winner-dont-bind-my-keys t)
+       (setq winner-boring-buffers
+             '("*Completions*" "*Help*" "*Apropos*" "*Buffer List*"
+               "*Compile-Log*" "*Warnings*" "*Messages*"))
+       :bind (("C-x 4 u" . winner-undo)
+              ("C-x 4 U" . winner-redo))
+       :config
+       (winner-mode 1))
+   #+end_src
+
+** Popper: tame transient buffers
+
+   Buffers matched by ~popper-reference-buffers~ stop competing for real
+   estate: they open in a bottom window taking a third of the frame,
+   ~C-`~ hides or restores the latest one, and ~M-`~ cycles through the
+   rest.  ~C-M-`~ promotes or demotes the current buffer, so anything
+   misclassified can be fixed in place.
+
+   ~M-`~ is normally ~tmm-menubar~ and ~C-`~ does not exist in a
+   terminal — under =emacs -nw= use ~M-x popper-toggle~ or pick other
+   keys.
+
+   #+begin_src emacs-lisp :tangle no
+     (use-package popper
+       :ensure t
+       ;; Same reason as winner: popper has to be active before the
+       ;; popups appear, otherwise it never classifies them.
+       :demand t
+       :bind (("C-`"   . popper-toggle)
+              ("M-`"   . popper-cycle)
+              ("C-M-`" . popper-toggle-type))
+       :init
+       (setq popper-reference-buffers
+             '("\\*Messages\\*"
+               "\\*Warnings\\*"
+               "\\*Backtrace\\*"
+               "\\*Compile-Log\\*"
+               "\\*Async Shell Command\\*"
+               "\\*vc-diff\\*"
+               "Output\\*$"
+               "\\*Shell Command Output\\*"
+               help-mode
+               helpful-mode
+               compilation-mode
+               occur-mode
+               grep-mode
+               xref--xref-buffer-mode
+               flymake-diagnostics-buffer-mode
+               flycheck-error-list-mode
+               eat-mode
+               vterm-mode
+               eshell-mode)
+             popper-window-height 0.33)
+       :config
+       (popper-mode 1)
+       ;; Show what else is stacked up in the echo area when a popup opens.
+       (popper-echo-mode 1))
+   #+end_src
+
+** Display rules for the rest
+
+   Buffers that are not transient popups but still should not steal the
+   editing window.  ~add-to-list~ rather than ~setq~, so re-evaluating
+   this block does not drop the rules other sections add (Embark
+   installs one of its own, see [[Embark]]).
+
+   #+begin_src emacs-lisp :tangle no
+     (dolist (rule
+              '(;; Long-lived side panels, kept out of popper on purpose:
+                ;; they are meant to stay visible next to the code.
+                ("\\*gptel\\*\\|\\*Claude\\*"
+                 (display-buffer-in-side-window)
+                 (side . right)
+                 (window-width . 0.4)
+                 (slot . 0))
+                ("\\*Dictionary\\*"
+                 (display-buffer-in-side-window)
+                 (side . right)
+                 (window-width . 0.35)
+                 (slot . 1))
+                ;; Full-window applications: never split for these.
+                ("\\*prodigy\\*"
+                 (display-buffer-same-window))))
+       (add-to-list 'display-buffer-alist rule))
+   #+end_src
+
+   Magit deliberately ignores ~display-buffer-alist~ for its status
+   buffer; use ~magit-display-buffer-function~ (e.g.
+   ~magit-display-buffer-fullframe-status-v1~) if that placement needs
+   changing.
+
+** Tab-bar: named layouts
+
+   Built in since Emacs 27 and enough to replace =eyebrowse= or
+   =perspective=: each tab holds its own window configuration.  The
+   prefix is ~C-x t~ — ~C-x t 2~ new tab, ~C-x t 0~ close, ~C-x t o~
+   next, ~C-x t RET~ select by name, ~C-x t r~ rename.
+
+   The bar hides itself while there is only one tab, so it costs no
+   screen space until it is used.
+
+   #+begin_src emacs-lisp :tangle no
+     (use-package tab-bar
+       :ensure nil
+       :init
+       (setq tab-bar-show 1                     ; hide the bar with a single tab
+             tab-bar-new-tab-choice "*scratch*"
+             tab-bar-tab-hints t                ; number the tabs
+             tab-bar-close-button-show nil
+             tab-bar-format '(tab-bar-format-tabs tab-bar-separator))
+       :config
+       (tab-bar-mode 1))
+   #+end_src
+
+   ~tab-bar-history-mode~ offers per-tab layout undo on ~C-x t <left>~;
+   it overlaps with =winner= above, so enable one or the other rather
+   than both.
 
 * Pdf-tools
 

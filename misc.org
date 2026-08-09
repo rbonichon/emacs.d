@@ -624,7 +624,7 @@ The buffer is named *scratch[PROJECT]* and uses fundamental-mode."
 
 * Column reading with follow-mode
 
-Spread one buffer across several side-by-side windows and let =follow-mode=
+                                                      Spread one buffer across several side-by-side windows and let =follow-mode=
 scroll them as a single continuous column — useful to read a long file without
 constant scrolling.
 

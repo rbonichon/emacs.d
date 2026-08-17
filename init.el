@@ -37,6 +37,7 @@
         "loopless"
         "org-rg"
         "just"
+        "nixcfg"
         "garmin"
         "light"
         "autorandr"

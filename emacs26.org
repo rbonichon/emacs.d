@@ -676,11 +676,41 @@ for myself.
           dired-recursive-copies  'always
           dired-recursive-deletes 'always
           dired-hide-details-mode t
-          dired-listing-switches "-lagho --group-directories-first"))
+          dired-listing-switches "-lagho --group-directories-first"
+          ;; Both are needed for `R' to offer to create the year directory
+          ;; a filing recipe points at: the second one covers the single
+          ;; file case, where the target ends in a slash.
+          dired-create-destination-dirs 'ask
+          dired-create-destination-dirs-on-trailing-dirsep t))
   #+end_src
 
   #+RESULTS:
   : t
+
+** Filing documents by recipe
+
+   [[file:mylibs/rb-filing.el][rb-filing]] moves a file where its name says it belongs: =TVA_07-2026_loopless.pdf=
+   to =~/loopless/accounting/2026/tva=, creating the directory on the way.  The
+   same recipes serve three entry points: =!= offers the move as its first guess
+   (the usual guesses stay one =M-n= away), =R= defaults to the recipe directory,
+   and =C-c f= does it in Lisp without a shell.  ~rb-filing-auto-mode~ applies them
+   on a timer to ~rb-filing-watch-directories~; ~rb-filing-watch-mode~ is the file
+   notification alternative.
+
+   #+begin_src emacs-lisp
+     (use-package rb-filing
+       :ensure nil
+       :load-path "mylibs"
+       :demand t
+       :config
+       ;; set here rather than with the other dired options: it names a
+       ;; function of this file, so it must not outlive it.
+       (setq dired-dwim-target #'rb-filing-dwim-target-directories)
+       (rb-filing-setup)
+       (rb-filing-auto-mode 1)
+       (with-eval-after-load 'dired
+         (keymap-set dired-mode-map "C-c f" #'rb-filing-dired-do-file)))
+   #+end_src
 
 ** Dired-quick-sort
 

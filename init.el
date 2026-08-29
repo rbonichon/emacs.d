@@ -43,7 +43,8 @@
         "autorandr"
         "vol"
         "ir"
-        "prospect"))
+        "prospect"
+        "ox-whatsapp"))
 
 (cl-loop
  for lib in my-libraries

@@ -44,7 +44,8 @@
         "vol"
         "ir"
         "prospect"
-        "ox-whatsapp"))
+        "ox-whatsapp"
+        "vacances-scolaires"))
 
 (cl-loop
  for lib in my-libraries

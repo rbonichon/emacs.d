@@ -1,6 +1,7 @@
-# Deny-by-default: this repo tracks only the literate config + init files.
-# Everything else in ~/.emacs.d is runtime state, package installs, backups,
-# or credentials — none of it should ever be committed by an `git add -A`.
+# Deny-by-default: this repo tracks the literate config, the init files, and
+# the elisp libraries of mylibs/.  Everything else in ~/.emacs.d is runtime
+# state, package installs, backups, or credentials — none of it should ever be
+# committed by an `git add -A`.
 *
 
 # --- explicitly tracked ---
@@ -10,6 +11,14 @@
 !emacs26.org
 !misc.org
 !orgmode.org
+
+# mylibs/ is tracked normally: a new library must not need `git add -f'.
+# The directory itself has to be re-included before anything inside it can be,
+# `*' above matching it too — git does not descend into an excluded directory.
+# Only sources, never the .elc that byte-compilation drops beside them.
+!mylibs/
+!mylibs/*.el
+!mylibs/.gitignore
 
 # --- never track, even if the rules above are relaxed later ---
 # (redundant with `*`, kept as an explicit guard)

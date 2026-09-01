@@ -45,7 +45,8 @@
         "ir"
         "prospect"
         "ox-whatsapp"
-        "vacances-scolaires"))
+        "vacances-scolaires"
+        "rb-gcal"))
 
 (cl-loop
  for lib in my-libraries

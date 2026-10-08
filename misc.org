@@ -654,3 +654,16 @@ With a prefix argument, add N extra windows instead of the default 2."
   (column-read-buffer (current-buffer)
                       (and n (prefix-numeric-value n))))
 #+end_src
+
+* Weather (wttrin)
+
+The package comes from Nix (home/modules/emacs.nix), hence no ~:ensure~.
+Font is set per desktop theme, in the generated =emacs-theme.el=.
+
+#+begin_src emacs-lisp
+(use-package wttrin
+  :defer t
+  :commands wttrin
+  :custom
+  (wttrin-default-locations '("Paris" "Natal" "London" "Toulouse" "Berlin")))
+#+end_src

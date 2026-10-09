@@ -314,7 +314,7 @@ depth (e.g. /teaching/2021-asi36.html)."
               (alist-get 'author ref) ", ")))
 
 (defun rb-website--biblio-venue (ref)
-  "Venue, year, award, series and pages of REF, ending with a period."
+  "Venue, year, award, series and pages of REF."
   (let-alist ref
     (concat
      (if (equal .type "article-journal")
@@ -327,8 +327,7 @@ depth (e.g. /teaching/2021-asi36.html)."
      (when .note (concat " — " (rb-website--biblio-clean .note)))
      (when .series (concat ", " (rb-website--biblio-clean .series)))
      (when .page
-       (concat ", p. " (string-replace "-" "–" (rb-website--biblio-clean .page))))
-     ".")))
+       (concat ", p. " (string-replace "-" "–" (rb-website--biblio-clean .page)))))))
 
 (defun rb-website--biblio-links (ref)
   "pdf · slides · arxiv · doi links of REF."
@@ -349,15 +348,16 @@ depth (e.g. /teaching/2021-asi36.html)."
      " · ")))
 
 (defun rb-website--biblio-entry (ref)
-  "Org list item for REF, on one line (no filling: it would split links
-and emphasis markers)."
-  (concat "- "
-          (string-trim
-           (format "%s. /%s/. %s %s"
-                   (rb-website--biblio-authors ref)
-                   (rb-website--biblio-clean (alist-get 'title ref))
-                   (rb-website--biblio-venue ref)
-                   (rb-website--biblio-links ref)))))
+  "Org list item for REF: title, authors, then venue and links, one per
+line as in the Typst CV.  No filling: it would split links and emphasis
+markers.  The venue line is wrapped in .pub-venue for site.css, with
+spaces inside the span: org emphasis cannot touch an @@ snippet."
+  (let ((links (rb-website--biblio-links ref)))
+    (format "- /%s/ \\\\\n  %s \\\\\n  @@html:<span class=\"pub-venue\">@@ %s%s @@html:</span>@@"
+            (rb-website--biblio-clean (alist-get 'title ref))
+            (rb-website--biblio-authors ref)
+            (rb-website--biblio-venue ref)
+            (if (string-empty-p links) "" (concat " · " links)))))
 
 (defun rb-website--biblio-year (ref)
   "Publication year of REF as a number."

@@ -46,7 +46,9 @@
         "prospect"
         "ox-whatsapp"
         "vacances-scolaires"
-        "rb-gcal"))
+        "rb-gcal"
+        "yt-elfeed"
+        "pesees"))
 
 (cl-loop
  for lib in my-libraries
